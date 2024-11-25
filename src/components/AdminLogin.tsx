@@ -17,7 +17,7 @@ export default function AdminLogin() {
       return;
     }
 
-    console.log('Submitting password:', password); // Debug log
+    console.log('Submitting password:', password.trim()); // Debug log
     const isValid = login(password.trim());
     
     if (isValid) {

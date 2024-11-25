@@ -2,13 +2,13 @@ import { create } from 'zustand';
 import { AdminState } from '../types';
 
 // Get admin password from environment variable
-const ADMIN_PASSWORD = import.meta.env.VITE_ADMIN_PASSWORD;
+const ADMIN_PASSWORD = 'tee_shine18'; // Hardcode the password temporarily for testing
 
 export const useAdminStore = create<AdminState>((set) => ({
   isAuthenticated: localStorage.getItem('adminAuth') === 'true',
   isDark: localStorage.getItem('isDark') === 'true' || false,
   login: (password: string) => {
-    console.log('Attempting login with password:', password); // Debug log
+    console.log('Attempting login with:', password); // Debug log
     console.log('Expected password:', ADMIN_PASSWORD); // Debug log
     const isValid = password === ADMIN_PASSWORD;
     if (isValid) {
