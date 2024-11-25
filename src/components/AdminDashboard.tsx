@@ -2,9 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAdminStore } from '../store/adminStore';
 import { Users, Bell, LogOut, Trash2, Edit, Send, Sun, Moon } from 'lucide-react';
-import { WaitlistUser, Update, UpdateFormData, WaitlistEmailData } from '../types';
+import { WaitlistUser, Update, UpdateFormData } from '../types';
 import emailjs from '@emailjs/browser';
 import toast, { Toaster } from 'react-hot-toast';
+import { getWaitlistUsers, subscribeToWaitlist, deleteWaitlistUser, updateUserFeedback } from '../lib/database';
 
 // Initialize EmailJS
 emailjs.init("9sf1untPPvbg0U1P9");
@@ -28,7 +29,17 @@ interface Comment {
 }
 
 interface UpdateWithComments extends Update {
-  comments: Comment[];
+  comments: {
+    id: string;
+    userEmail: string;
+    content: string;
+    date: string;
+    adminReply?: string;
+    adminReplyDate?: string;
+    update_id: string;
+    user_email: string;
+    created_at: string;
+  }[];
 }
 
 export default function AdminDashboard() {
@@ -47,51 +58,27 @@ export default function AdminDashboard() {
       return;
     }
 
-    try {
-      const waitlistData = localStorage.getItem('waitlist');
-      const waitlistEmails = waitlistData ? JSON.parse(waitlistData) : [];
-      
-      const validEmails = Array.isArray(waitlistEmails) ? waitlistEmails : [];
-      
-      const formattedUsers = validEmails.map((emailData: string | WaitlistEmailData) => {
-        if (typeof emailData === 'string') {
-          return {
-            email: emailData,
-            joinedAt: new Date().toISOString(),
-            feedback: ''
-          };
-        }
-        return {
-          email: emailData.email,
-          joinedAt: emailData.joinedAt || new Date().toISOString(),
-          feedback: emailData.feedback || ''
-        };
-      });
-      
-      setUsers(formattedUsers);
+    // Initial load of waitlist users
+    const loadUsers = async () => {
+      try {
+        const users = await getWaitlistUsers();
+        setUsers(users);
+      } catch (error) {
+        console.error('Error loading users:', error);
+        toast.error('Error loading users');
+      }
+    };
 
-      // Use shared localStorage key for updates
-      const updatesData = localStorage.getItem('tagflow_updates');
-      const savedUpdates = updatesData ? JSON.parse(updatesData) : [];
-      setUpdates(Array.isArray(savedUpdates) ? savedUpdates : []);
+    loadUsers();
 
-      // Listen for storage changes
-      const handleStorageChange = (e: StorageEvent) => {
-        if (e.key === 'tagflow_updates') {
-          const newUpdates = e.newValue ? JSON.parse(e.newValue) : [];
-          setUpdates(newUpdates);
-        }
-      };
+    // Subscribe to real-time updates
+    const subscription = subscribeToWaitlist((updatedUsers) => {
+      setUsers(updatedUsers);
+    });
 
-      window.addEventListener('storage', handleStorageChange);
-
-      return () => {
-        window.removeEventListener('storage', handleStorageChange);
-      };
-    } catch (error) {
-      console.error('Error loading data:', error);
-      toast.error('Error loading data');
-    }
+    return () => {
+      subscription.unsubscribe();
+    };
   }, [isAuthenticated, navigate]);
 
   const sendEmailNotifications = async (update: Update) => {
@@ -119,7 +106,7 @@ export default function AdminDashboard() {
             subject: "New Update from TagFlow!",
             update_title: update.title,
             update_content: update.content,
-            update_image: update.imageUrl || '',
+            update_image: update.image_url || '',
             update_date: new Date().toLocaleDateString(),
             action_url: window.location.origin,
             email_to: userEmail,
@@ -173,14 +160,13 @@ export default function AdminDashboard() {
       toast.error('Please fill in all required fields');
       return;
     }
-
     try {
       const update: Update = {
         id: editingId || Date.now().toString(),
         title: newUpdate.title,
         content: newUpdate.content,
-        imageUrl: newUpdate.imageUrl || '',
-        date: new Date().toISOString(),
+        image_url: newUpdate.imageUrl || '',
+        created_at: new Date().toISOString(),
         comments: [],
       };
 
@@ -203,7 +189,8 @@ export default function AdminDashboard() {
         newValue: JSON.stringify(updatedList)
       }));
 
-      setUpdates(updatedList);
+      // Cast updatedList to UpdateWithComments[] since we know the structure matches
+      setUpdates(updatedList as UpdateWithComments[]);
       setNewUpdate(initialUpdateState);
       setEditingId(null);
     } catch (error) {
@@ -217,7 +204,7 @@ export default function AdminDashboard() {
     setNewUpdate({
       title: update.title,
       content: update.content,
-      imageUrl: update.imageUrl || '',
+      imageUrl: update.image_url || '',
     });
   };
 
@@ -228,12 +215,14 @@ export default function AdminDashboard() {
     toast.success('Update deleted successfully!');
   };
 
-  const handleDeleteUser = (email: string) => {
-    const updatedUsers = users.filter(user => user.email !== email);
-    const waitlist = updatedUsers.map(user => user.email);
-    localStorage.setItem('waitlist', JSON.stringify(waitlist));
-    setUsers(updatedUsers);
-    toast.success('User deleted successfully!');
+  const handleDeleteUser = async (id: string) => {
+    try {
+      await deleteWaitlistUser(id);
+      toast.success('User deleted successfully!');
+    } catch (error) {
+      console.error('Error deleting user:', error);
+      toast.error('Failed to delete user');
+    }
   };
 
   const handleLogout = () => {
@@ -280,35 +269,9 @@ export default function AdminDashboard() {
     }
   };
 
-  const handleFeedbackSubmit = (email: string, feedback: string) => {
+  const handleFeedbackSubmit = async (id: string, feedback: string) => {
     try {
-      const updatedUsers = users.map(user => 
-        user.email === email ? { ...user, feedback, joinedAt: user.joinedAt } : user
-      );
-      
-      // Update the users state
-      setUsers(updatedUsers);
-      
-      // Get current waitlist and update it with new feedback
-      const waitlist = JSON.parse(localStorage.getItem('waitlist') || '[]');
-      const updatedWaitlist = waitlist.map((item: string | WaitlistEmailData) => {
-        if (typeof item === 'string' && item === email) {
-          return {
-            email: item,
-            feedback,
-            joinedAt: new Date().toISOString()
-          };
-        } else if (typeof item === 'object' && item.email === email) {
-          return {
-            ...item,
-            feedback
-          };
-        }
-        return item;
-      });
-      
-      // Save back to localStorage
-      localStorage.setItem('waitlist', JSON.stringify(updatedWaitlist));
+      await updateUserFeedback(id, feedback);
       toast.success('Feedback saved successfully!');
     } catch (error) {
       console.error('Error saving feedback:', error);
@@ -435,7 +398,7 @@ export default function AdminDashboard() {
                               {user.email}
                             </p>
                             <p className={`text-sm ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
-                              Joined: {new Date(user.joinedAt).toLocaleDateString()}
+                              Joined: {new Date(user.joined_at).toLocaleDateString()}
                             </p>
                           </div>
                           <button
@@ -554,15 +517,15 @@ export default function AdminDashboard() {
                           <div className="flex-1">
                             <h4 className="text-sm font-medium text-gray-900">{update.title}</h4>
                             <p className="mt-1 text-sm text-gray-600">{update.content}</p>
-                            {update.imageUrl && (
+                            {update.image_url && (
                               <img
-                                src={update.imageUrl}
+                                src={update.image_url}
                                 alt={update.title}
                                 className="mt-2 rounded-lg max-h-40 object-cover"
                               />
                             )}
                             <p className="mt-2 text-xs text-gray-500">
-                              {new Date(update.date).toLocaleDateString()}
+                              {new Date(update.created_at).toLocaleDateString()}
                             </p>
                           </div>
                           <div className="ml-4 flex space-x-2">

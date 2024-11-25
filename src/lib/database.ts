@@ -1,11 +1,25 @@
 import { supabase } from './supabase';
-import { Update, Comment, WaitlistUser } from '../types';
+import type { Update, Comment, WaitlistUser } from '../types';
+import type { RealtimePostgresChangesPayload } from '@supabase/supabase-js';
 
 // Waitlist Operations
 export const addToWaitlist = async (email: string): Promise<WaitlistUser> => {
+  const { data: existing } = await supabase
+    .from('waitlist')
+    .select()
+    .eq('email', email)
+    .single();
+
+  if (existing) {
+    throw new Error('Email already exists in waitlist');
+  }
+
   const { data, error } = await supabase
     .from('waitlist')
-    .insert([{ email }])
+    .insert([{ 
+      email,
+      joined_at: new Date().toISOString()
+    }])
     .select()
     .single();
 
@@ -39,6 +53,22 @@ export const deleteWaitlistUser = async (id: string): Promise<void> => {
     .eq('id', id);
 
   if (error) throw error;
+};
+
+export const subscribeToWaitlist = (callback: (users: WaitlistUser[]) => void) => {
+  return supabase
+    .channel('waitlist_changes')
+    .on('postgres_changes', 
+      { event: '*', schema: 'public', table: 'waitlist' },
+      async (_payload: RealtimePostgresChangesPayload<WaitlistUser>) => {
+        const { data } = await supabase
+          .from('waitlist')
+          .select('*')
+          .order('joined_at', { ascending: false });
+        callback(data || []);
+      }
+    )
+    .subscribe();
 };
 
 // Updates Operations
@@ -123,7 +153,7 @@ export const subscribeToUpdates = (callback: (update: Update) => void) => {
     .channel('updates')
     .on('postgres_changes', 
       { event: '*', schema: 'public', table: 'updates' },
-      (payload) => callback(payload.new as Update)
+      (payload: RealtimePostgresChangesPayload<Update>) => callback(payload.new as Update)
     )
     .subscribe();
 };
@@ -133,7 +163,7 @@ export const subscribeToComments = (callback: (comment: Comment) => void) => {
     .channel('comments')
     .on('postgres_changes', 
       { event: '*', schema: 'public', table: 'comments' },
-      (payload) => callback(payload.new as Comment)
+      (payload: RealtimePostgresChangesPayload<Comment>) => callback(payload.new as Comment)
     )
     .subscribe();
 }; 

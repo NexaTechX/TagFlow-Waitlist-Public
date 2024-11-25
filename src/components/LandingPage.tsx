@@ -4,7 +4,7 @@ import toast, { Toaster } from 'react-hot-toast';
 import { useAdminStore } from '../store/adminStore';
 import { Sun, Moon } from 'lucide-react';
 import emailjs from '@emailjs/browser';
-import { WaitlistEmailData } from '../types';
+import { addToWaitlist } from '../lib/database';
 
 // Initialize EmailJS with your public key
 emailjs.init("9sf1untPPvbg0U1P9");
@@ -72,25 +72,10 @@ export default function LandingPage() {
         return;
       }
 
-      const waitlistData = localStorage.getItem('waitlist');
-      const waitlist: WaitlistEmailData[] = waitlistData ? JSON.parse(waitlistData) : [];
-
-      if (waitlist.some(item => 
-        typeof item === 'string' ? item === trimmedEmail : item.email === trimmedEmail
-      )) {
-        toast.error('You are already on the waitlist!');
-        return;
-      }
+      // Add to Supabase waitlist
+      await addToWaitlist(trimmedEmail);
       
-      const newWaitlistItem: WaitlistEmailData = {
-        email: trimmedEmail,
-        joinedAt: new Date().toISOString(),
-        feedback: ''
-      };
-      
-      const updatedWaitlist = [...waitlist, newWaitlistItem];
-      localStorage.setItem('waitlist', JSON.stringify(updatedWaitlist));
-      
+      // Send welcome email
       const emailSent = await sendWelcomeEmail(trimmedEmail);
       
       if (emailSent) {
@@ -101,9 +86,13 @@ export default function LandingPage() {
       }
       
       setEmail('');
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error joining waitlist:', error);
-      toast.error('Failed to join waitlist');
+      if (error.message === 'Email already exists in waitlist') {
+        toast.error('You are already on the waitlist!');
+      } else {
+        toast.error('Failed to join waitlist');
+      }
     } finally {
       setIsSubmitting(false);
     }

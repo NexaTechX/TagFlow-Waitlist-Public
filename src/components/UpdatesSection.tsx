@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Update, Comment } from '../types';
 import toast, { Toaster } from 'react-hot-toast';
 import { useAdminStore } from '../store/adminStore';
+import { getUpdates, addComment, subscribeToUpdates } from '../lib/database';
 
 export default function UpdatesSection() {
   const { isDark } = useAdminStore();
@@ -10,37 +11,39 @@ export default function UpdatesSection() {
   const [userEmail, setUserEmail] = useState<string>('');
   const [commentingOn, setCommentingOn] = useState<string | null>(null);
 
-  const refreshUpdates = () => {
-    try {
-      const savedUpdates = JSON.parse(localStorage.getItem('tagflow_updates') || '[]');
-      const formattedUpdates = savedUpdates.map((update: Update) => ({
-        ...update,
-        comments: update.comments || []
-      }));
-      setUpdates(formattedUpdates);
-    } catch (error) {
-      console.error('Error refreshing updates:', error);
-      toast.error('Error loading updates');
-    }
-  };
-
   useEffect(() => {
-    const handleStorageChange = (e: StorageEvent) => {
-      if (e.key === 'tagflow_updates') {
-        refreshUpdates();
+    // Initial load of updates
+    const loadUpdates = async () => {
+      try {
+        const fetchedUpdates = await getUpdates();
+        setUpdates(fetchedUpdates);
+      } catch (error) {
+        console.error('Error loading updates:', error);
+        toast.error('Error loading updates');
       }
     };
 
-    window.addEventListener('storage', handleStorageChange);
-    refreshUpdates();
-    const interval = setInterval(refreshUpdates, 5000);
+    loadUpdates();
+
+    // Subscribe to real-time updates
+    const subscription = subscribeToUpdates((update) => {
+      setUpdates(prevUpdates => {
+        const index = prevUpdates.findIndex(u => u.id === update.id);
+        if (index >= 0) {
+          const newUpdates = [...prevUpdates];
+          newUpdates[index] = update;
+          return newUpdates;
+        }
+        return [update, ...prevUpdates];
+      });
+    });
+
     return () => {
-      window.removeEventListener('storage', handleStorageChange);
-      clearInterval(interval);
+      subscription.unsubscribe();
     };
   }, []);
 
-  const handleCommentSubmit = (updateId: string) => {
+  const handleCommentSubmit = async (updateId: string) => {
     if (!userEmail.trim()) {
       toast.error('Please enter your email to comment');
       return;
@@ -51,34 +54,22 @@ export default function UpdatesSection() {
       return;
     }
 
-    const comment: Comment = {
-      id: Date.now().toString(),
-      userEmail,
-      content: newComment,
-      date: new Date().toISOString()
-    };
+    try {
+      const comment: Omit<Comment, 'id' | 'created_at'> = {
+        update_id: updateId,
+        user_email: userEmail,
+        content: newComment
+      };
 
-    const updatedUpdates = updates.map(update => {
-      if (update.id === updateId) {
-        return {
-          ...update,
-          comments: [...(update.comments || []), comment]
-        };
-      }
-      return update;
-    });
-
-    localStorage.setItem('tagflow_updates', JSON.stringify(updatedUpdates));
-    window.dispatchEvent(new StorageEvent('storage', {
-      key: 'tagflow_updates',
-      newValue: JSON.stringify(updatedUpdates)
-    }));
-
-    setUpdates(updatedUpdates);
-    setNewComment('');
-    setCommentingOn(null);
-    setUserEmail('');
-    toast.success('Comment added successfully!');
+      await addComment(comment);
+      setNewComment('');
+      setCommentingOn(null);
+      setUserEmail('');
+      toast.success('Comment added successfully!');
+    } catch (error) {
+      console.error('Error adding comment:', error);
+      toast.error('Failed to add comment');
+    }
   };
 
   if (updates.length === 0) {
@@ -114,16 +105,16 @@ export default function UpdatesSection() {
               <p className={`mt-2 ${isDark ? 'text-gray-300' : 'text-gray-600'} transition-colors duration-300`}>
                 {update.content}
               </p>
-              {update.imageUrl && (
+              {update.image_url && (
                 <img
-                  src={update.imageUrl}
+                  src={update.image_url}
                   alt={update.title}
                   className="mt-4 rounded-lg max-h-64 w-full object-cover"
                   loading="lazy"
                 />
               )}
               <p className={`mt-4 text-sm ${isDark ? 'text-gray-400' : 'text-gray-500'} transition-colors duration-300`}>
-                Posted on {new Date(update.date).toLocaleDateString()}
+                Posted on {new Date(update.created_at).toLocaleDateString()}
               </p>
 
               {/* Comments Section */}
@@ -142,19 +133,19 @@ export default function UpdatesSection() {
                       </p>
                       <div className="mt-2 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2">
                         <p className={`text-sm ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
-                          By: {comment.userEmail}
+                          By: {comment.user_email}
                         </p>
                         <p className={`text-sm ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
-                          {new Date(comment.date).toLocaleDateString()}
+                          {new Date(comment.created_at).toLocaleDateString()}
                         </p>
                       </div>
-                      {comment.adminReply && (
+                      {comment.admin_reply && (
                         <div className={`mt-3 pl-4 border-l-2 ${isDark ? 'border-blue-400' : 'border-blue-300'}`}>
                           <p className={`${isDark ? 'text-gray-200' : 'text-gray-700'}`}>
-                            {comment.adminReply}
+                            {comment.admin_reply}
                           </p>
                           <p className={`text-sm ${isDark ? 'text-gray-400' : 'text-gray-500'} mt-1`}>
-                            Admin Reply • {new Date(comment.adminReplyDate!).toLocaleDateString()}
+                            Admin Reply • {new Date(comment.admin_reply_at!).toLocaleDateString()}
                           </p>
                         </div>
                       )}

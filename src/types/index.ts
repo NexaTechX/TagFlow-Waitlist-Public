@@ -37,9 +37,3 @@ export interface UpdateFormData {
   content: string;
   imageUrl?: string;
 }
-
-export interface WaitlistEmailData {
-  email: string;
-  feedback?: string;
-  joinedAt: string;
-}
