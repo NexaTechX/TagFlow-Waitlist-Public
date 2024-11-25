@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import { AdminState } from '../types';
 
 // In production, this would be handled securely via environment variables
-const ADMIN_PASSWORD = import.meta.env.VITE_ADMIN_PASSWORD || '@Teeshine18';
+const ADMIN_PASSWORD = import.meta.env.VITE_ADMIN_PASSWORD || 'tee_shine18';
 
 export const useAdminStore = create<AdminState>((set) => ({
   isAuthenticated: localStorage.getItem('adminAuth') === 'true',

@@ -6,8 +6,8 @@ import { Sun, Moon } from 'lucide-react';
 import emailjs from '@emailjs/browser';
 import { WaitlistEmailData } from '../types';
 
-// Initialize EmailJS
-emailjs.init(import.meta.env.VITE_EMAIL_PUBLIC_KEY);
+// Initialize EmailJS with your public key
+emailjs.init("9sf1untPPvbg0U1P9");
 
 export default function LandingPage() {
   const { isDark, toggleTheme } = useAdminStore();
@@ -38,11 +38,9 @@ export default function LandingPage() {
         user_email: userEmail
       };
 
-      console.log('Sending welcome email with params:', templateParams);
-
       const response = await emailjs.send(
-        import.meta.env.VITE_EMAIL_SERVICE_ID,
-        import.meta.env.VITE_WELCOME_TEMPLATE_ID,
+        "service_mzam0ga",
+        "template_qkfkuzi",
         templateParams
       );
 

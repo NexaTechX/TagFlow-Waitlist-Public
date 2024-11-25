@@ -7,7 +7,7 @@ import emailjs from '@emailjs/browser';
 import toast, { Toaster } from 'react-hot-toast';
 
 // Initialize EmailJS
-emailjs.init(import.meta.env.VITE_EMAIL_PUBLIC_KEY);
+emailjs.init("9sf1untPPvbg0U1P9");
 
 const EMAIL_SERVICE_ID = import.meta.env.VITE_EMAIL_SERVICE_ID;
 const EMAIL_TEMPLATE_ID = import.meta.env.VITE_EMAIL_TEMPLATE_ID;
@@ -123,8 +123,8 @@ export default function AdminDashboard() {
           console.log('Sending notification to:', userEmail, templateParams);
 
           const response = await emailjs.send(
-            import.meta.env.VITE_EMAIL_SERVICE_ID,
-            import.meta.env.VITE_UPDATE_NOTIFICATION_TEMPLATE_ID,
+            "service_mzam0ga",
+            "template_5uv23ip",
             templateParams
           );
 

@@ -1,4 +1,5 @@
 {
+  "version": 2,
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
   "framework": "vite",
@@ -9,7 +10,7 @@
     }
   ],
   "env": {
-    "VITE_ADMIN_PASSWORD": "@Teeshine18",
+    "VITE_ADMIN_PASSWORD": "tee_shine18",
     "VITE_EMAIL_SERVICE_ID": "service_mzam0ga",
     "VITE_EMAIL_TEMPLATE_ID": "template_5uv23ip",
     "VITE_EMAIL_PUBLIC_KEY": "9sf1untPPvbg0U1P9",
