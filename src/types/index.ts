@@ -1,24 +1,26 @@
 export interface Comment {
   id: string;
-  userEmail: string;
+  update_id: string;
+  user_email: string;
   content: string;
-  date: string;
-  adminReply?: string;
-  adminReplyDate?: string;
+  created_at: string;
+  admin_reply?: string;
+  admin_reply_at?: string;
 }
 
 export interface Update {
   id: string;
   title: string;
   content: string;
-  imageUrl?: string;
-  date: string;
-  comments: Comment[];
+  image_url?: string;
+  created_at: string;
+  comments?: Comment[];
 }
 
 export interface WaitlistUser {
+  id: string;
   email: string;
-  joinedAt: string;
+  joined_at: string;
   feedback?: string;
 }
 
