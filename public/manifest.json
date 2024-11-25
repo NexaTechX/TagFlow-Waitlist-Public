@@ -1,0 +1,24 @@
+{
+  "name": "TagFlow Waitlist",
+  "short_name": "TagFlow",
+  "icons": [
+    {
+      "src": "/tagflow-16x16.png",
+      "sizes": "16x16",
+      "type": "image/png"
+    },
+    {
+      "src": "/tagflow-32x32.png",
+      "sizes": "32x32",
+      "type": "image/png"
+    },
+    {
+      "src": "/tagflow-apple-touch.png",
+      "sizes": "180x180",
+      "type": "image/png"
+    }
+  ],
+  "theme_color": "#2563eb",
+  "background_color": "#ffffff",
+  "display": "standalone"
+} 
