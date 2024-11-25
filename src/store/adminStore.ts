@@ -1,24 +1,25 @@
 import { create } from 'zustand';
 import { AdminState } from '../types';
 
-// In production, this would be handled securely via environment variables
-const ADMIN_PASSWORD = import.meta.env.VITE_ADMIN_PASSWORD || 'tee_shine18';
+// Get admin password from environment variable
+const ADMIN_PASSWORD = import.meta.env.VITE_ADMIN_PASSWORD;
 
 export const useAdminStore = create<AdminState>((set) => ({
   isAuthenticated: localStorage.getItem('adminAuth') === 'true',
   isDark: localStorage.getItem('isDark') === 'true' || false,
   login: (password: string) => {
+    console.log('Attempting login with password:', password); // Debug log
+    console.log('Expected password:', ADMIN_PASSWORD); // Debug log
     const isValid = password === ADMIN_PASSWORD;
     if (isValid) {
       set({ isAuthenticated: true });
-      // Store auth state in localStorage to persist across page refreshes
       localStorage.setItem('adminAuth', 'true');
+      return true;
     }
-    return isValid;
+    return false;
   },
   logout: () => {
     set({ isAuthenticated: false });
-    // Clear auth state from localStorage on logout
     localStorage.removeItem('adminAuth');
   },
   toggleTheme: () => {

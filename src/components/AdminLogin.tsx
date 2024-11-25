@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAdminStore } from '../store/adminStore';
-import toast from 'react-hot-toast';
+import toast, { Toaster } from 'react-hot-toast';
 import { Sun, Moon } from 'lucide-react';
 
 export default function AdminLogin() {
@@ -17,7 +17,9 @@ export default function AdminLogin() {
       return;
     }
 
-    const isValid = login(password);
+    console.log('Submitting password:', password); // Debug log
+    const isValid = login(password.trim());
+    
     if (isValid) {
       toast.success('Login successful!');
       navigate('/admin/dashboard');
@@ -29,6 +31,8 @@ export default function AdminLogin() {
 
   return (
     <div className={`min-h-screen ${isDark ? 'bg-gray-900' : 'bg-gray-50'} flex items-center justify-center`}>
+      <Toaster position="top-right" />
+      
       {/* Theme Toggle Button */}
       <div className="fixed top-4 right-4">
         <button
