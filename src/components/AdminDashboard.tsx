@@ -70,10 +70,24 @@ export default function AdminDashboard() {
       
       setUsers(formattedUsers);
 
-      // Get updates
-      const updatesData = localStorage.getItem('updates');
+      // Use shared localStorage key for updates
+      const updatesData = localStorage.getItem('tagflow_updates');
       const savedUpdates = updatesData ? JSON.parse(updatesData) : [];
       setUpdates(Array.isArray(savedUpdates) ? savedUpdates : []);
+
+      // Listen for storage changes
+      const handleStorageChange = (e: StorageEvent) => {
+        if (e.key === 'tagflow_updates') {
+          const newUpdates = e.newValue ? JSON.parse(e.newValue) : [];
+          setUpdates(newUpdates);
+        }
+      };
+
+      window.addEventListener('storage', handleStorageChange);
+
+      return () => {
+        window.removeEventListener('storage', handleStorageChange);
+      };
     } catch (error) {
       console.error('Error loading data:', error);
       toast.error('Error loading data');
@@ -177,15 +191,19 @@ export default function AdminDashboard() {
         toast.success('Update modified successfully!');
       } else {
         updatedList = [update, ...updates];
-        // Send email notifications for new posts only
         await sendEmailNotifications(update);
       }
 
-      localStorage.setItem('updates', JSON.stringify(updatedList));
-      setUpdates(updatedList.map(update => ({
-        ...update,
-        comments: update.comments || []
-      })));
+      // Save to shared localStorage key
+      localStorage.setItem('tagflow_updates', JSON.stringify(updatedList));
+      
+      // Trigger storage event for other tabs/windows
+      window.dispatchEvent(new StorageEvent('storage', {
+        key: 'tagflow_updates',
+        newValue: JSON.stringify(updatedList)
+      }));
+
+      setUpdates(updatedList);
       setNewUpdate(initialUpdateState);
       setEditingId(null);
     } catch (error) {

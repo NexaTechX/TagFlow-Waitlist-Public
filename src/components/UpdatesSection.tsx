@@ -12,7 +12,7 @@ export default function UpdatesSection() {
 
   const refreshUpdates = () => {
     try {
-      const savedUpdates = JSON.parse(localStorage.getItem('updates') || '[]');
+      const savedUpdates = JSON.parse(localStorage.getItem('tagflow_updates') || '[]');
       const formattedUpdates = savedUpdates.map((update: Update) => ({
         ...update,
         comments: update.comments || []
@@ -25,9 +25,19 @@ export default function UpdatesSection() {
   };
 
   useEffect(() => {
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === 'tagflow_updates') {
+        refreshUpdates();
+      }
+    };
+
+    window.addEventListener('storage', handleStorageChange);
     refreshUpdates();
     const interval = setInterval(refreshUpdates, 5000);
-    return () => clearInterval(interval);
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+      clearInterval(interval);
+    };
   }, []);
 
   const handleCommentSubmit = (updateId: string) => {
@@ -58,8 +68,13 @@ export default function UpdatesSection() {
       return update;
     });
 
+    localStorage.setItem('tagflow_updates', JSON.stringify(updatedUpdates));
+    window.dispatchEvent(new StorageEvent('storage', {
+      key: 'tagflow_updates',
+      newValue: JSON.stringify(updatedUpdates)
+    }));
+
     setUpdates(updatedUpdates);
-    localStorage.setItem('updates', JSON.stringify(updatedUpdates));
     setNewComment('');
     setCommentingOn(null);
     setUserEmail('');
