@@ -1,8 +1,8 @@
 import { create } from 'zustand';
 import { AdminState } from '../types';
 
-// Get admin password from environment variable
-const ADMIN_PASSWORD = 'tee_shine18'; // Hardcode the password temporarily for testing
+// Set the default admin password
+const ADMIN_PASSWORD = 'tee_shine18'; // Using the specified password
 
 export const useAdminStore = create<AdminState>((set) => ({
   isAuthenticated: localStorage.getItem('adminAuth') === 'true',
