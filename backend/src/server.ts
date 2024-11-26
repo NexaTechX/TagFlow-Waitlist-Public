@@ -1,15 +1,64 @@
 import express from 'express';
-import mongoose from 'mongoose';
+import { createServer } from 'http';
+import { Server } from 'socket.io';
 import cors from 'cors';
-import dotenv from 'dotenv';
-import { Update } from './models/Update';
-import { Waitlist } from './models/Waitlist';
-
-dotenv.config();
+import mongoose from 'mongoose';
+import { Update, Waitlist } from './models';
+import https from 'https';
+import fs from 'fs';
+import path from 'path';
 
 const app = express();
+const options = {
+  key: fs.readFileSync(path.join(__dirname, '../ssl/private.key')),
+  cert: fs.readFileSync(path.join(__dirname, '../ssl/certificate.crt')),
+};
+
+const server = process.env.NODE_ENV === 'production'
+  ? https.createServer(options, app)
+  : createServer(app);
+
+const io = new Server(server, {
+  cors: {
+    origin: process.env.NODE_ENV === 'production' 
+      ? 'https://your-frontend-url.com'
+      : 'http://localhost:5173',
+    methods: ['GET', 'POST'],
+    credentials: true
+  },
+  pingTimeout: 60000,
+  pingInterval: 25000,
+});
+
 app.use(cors());
 app.use(express.json());
+
+// Socket.IO connection handling
+io.on('connection', (socket) => {
+  console.log('Client connected:', socket.id);
+
+  socket.on('join-waitlist', async (email) => {
+    try {
+      const user = await Waitlist.create({ email });
+      io.emit('waitlist-updated', user);
+    } catch (error) {
+      socket.emit('error', error.message);
+    }
+  });
+
+  socket.on('post-update', async (update) => {
+    try {
+      const newUpdate = await Update.create(update);
+      io.emit('update-posted', newUpdate);
+    } catch (error) {
+      socket.emit('error', error.message);
+    }
+  });
+
+  socket.on('disconnect', () => {
+    console.log('Client disconnected:', socket.id);
+  });
+});
 
 // Connect to MongoDB
 mongoose.connect(process.env.MONGODB_URI!)
@@ -78,6 +127,6 @@ app.post('/api/updates/:updateId/comments', async (req, res) => {
 });
 
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => {
+server.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 }); 

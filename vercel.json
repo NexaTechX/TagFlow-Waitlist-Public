@@ -8,26 +8,16 @@
       "handle": "filesystem"
     },
     {
-      "src": "/assets/(.*)",
-      "headers": {
-        "cache-control": "public, max-age=31536000, immutable"
-      },
-      "continue": true
+      "src": "/socket.io/(.*)",
+      "dest": "https://your-backend-url.com/socket.io/$1"
+    },
+    {
+      "src": "/api/(.*)",
+      "dest": "https://your-backend-url.com/api/$1"
     },
     {
       "src": "/(.*)",
       "dest": "/index.html"
-    }
-  ],
-  "headers": [
-    {
-      "source": "/assets/(.*)",
-      "headers": [
-        {
-          "key": "Content-Type",
-          "value": "application/javascript"
-        }
-      ]
     }
   ],
   "env": {
@@ -36,6 +26,7 @@
     "VITE_EMAIL_TEMPLATE_ID": "template_5uv23ip",
     "VITE_EMAIL_PUBLIC_KEY": "9sf1untPPvbg0U1P9",
     "VITE_WELCOME_TEMPLATE_ID": "template_qkfkuzi",
-    "VITE_UPDATE_NOTIFICATION_TEMPLATE_ID": "template_5uv23ip"
+    "VITE_UPDATE_NOTIFICATION_TEMPLATE_ID": "template_5uv23ip",
+    "VITE_BACKEND_URL": "https://your-backend-url.com"
   }
 } 
