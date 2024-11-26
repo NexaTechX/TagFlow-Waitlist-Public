@@ -1,39 +1,39 @@
 {
-  "name": "vite-react-typescript-starter",
+  "name": "tagflow-waitlist",
   "private": true,
-  "version": "0.0.0",
+  "version": "1.0.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "node scripts/generate-icons.js && tsc && vite build",
-    "lint": "eslint .",
-    "preview": "vite preview",
-    "deploy": "npm run build && vercel --prod",
-    "icons": "node scripts/generate-icons.js"
+    "build": "tsc && vite build",
+    "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
+    "preview": "vite preview"
   },
   "dependencies": {
     "@emailjs/browser": "^4.3.3",
     "@supabase/supabase-js": "^2.39.8",
-    "socket.io-client": "^4.7.5",
     "lucide-react": "^0.344.0",
-    "react": "^18.3.1",
-    "react-dom": "^18.3.1",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
     "react-hot-toast": "^2.4.1",
     "react-router-dom": "^6.22.3",
+    "socket.io-client": "^4.7.5",
     "zustand": "^4.5.2"
   },
   "devDependencies": {
-    "@types/react": "^18.3.5",
-    "@types/react-dom": "^18.3.0",
-    "@vitejs/plugin-react": "^4.3.1",
+    "@types/react": "^18.2.64",
+    "@types/react-dom": "^18.2.21",
+    "@typescript-eslint/eslint-plugin": "^7.1.1",
+    "@typescript-eslint/parser": "^7.1.1",
+    "@vitejs/plugin-react": "^4.2.1",
     "autoprefixer": "^10.4.18",
-    "eslint": "^9.9.1",
-    "eslint-plugin-react-hooks": "^5.1.0-rc.0",
-    "eslint-plugin-react-refresh": "^0.4.11",
+    "eslint": "^8.57.0",
+    "eslint-plugin-react-hooks": "^4.6.0",
+    "eslint-plugin-react-refresh": "^0.4.5",
     "postcss": "^8.4.35",
     "sharp": "^0.32.1",
     "tailwindcss": "^3.4.1",
-    "typescript": "^5.5.3",
-    "vite": "^5.4.11"
+    "typescript": "^5.2.2",
+    "vite": "^5.1.6"
   }
 }
