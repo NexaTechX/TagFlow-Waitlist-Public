@@ -340,7 +340,7 @@ export default function AdminDashboard() {
                   </h2>
                 </div>
                 <button
-                  onClick={() => sendWelcomeEmail(users.map(u => u.email).join(','))}
+                  onClick={() => sendWelcomeEmail(users.map((u: WaitlistUser) => u.email).join(','))}
                   className={`px-3 py-1 rounded-md ${
                     isDark 
                       ? 'bg-blue-600 hover:bg-blue-700 text-white' 
@@ -352,7 +352,7 @@ export default function AdminDashboard() {
               </div>
               <div className="mt-6">
                 <ul className="divide-y divide-gray-200">
-                  {users.map((user) => (
+                  {users.map((user: WaitlistUser) => (
                     <li key={user.id} className="py-4">
                       <div className="flex flex-col space-y-2">
                         <div className="flex items-center justify-between">
@@ -473,7 +473,7 @@ export default function AdminDashboard() {
               <div className="mt-6">
                 <h3 className="text-lg font-medium text-gray-900">Recent Updates</h3>
                 <ul className="mt-4 space-y-4">
-                  {updates.map((update) => (
+                  {updates.map((update: Update) => (
                     <li key={update.id} className="bg-gray-50 p-4 rounded-lg">
                       <div className="flex flex-col space-y-4">
                         <div className="flex justify-between items-start">
@@ -512,7 +512,7 @@ export default function AdminDashboard() {
                         {/* Comments Section */}
                         <div className="mt-4 space-y-3">
                           <h5 className="text-sm font-medium text-gray-900">User Comments</h5>
-                          {update.comments?.map((comment) => (
+                          {update.comments?.map((comment: Comment) => (
                             <div key={comment.id} className="bg-white p-3 rounded-md shadow-sm">
                               {/* User Comment */}
                               <div className="flex justify-between items-start">
