@@ -1,0 +1,51 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Helper functions
+    function isAdmin() {
+      return exists(/databases/$(database)/documents/admin_sessions/current) &&
+        get(/databases/$(database)/documents/admin_sessions/current).data.authenticated == true;
+    }
+    
+    function isRateLimited(path) {
+      let recentAttempts = getAfter(path).data.attempts || 0;
+      return recentAttempts <= 5;
+    }
+
+    // Admin sessions collection - allow initial access for login
+    match /admin_sessions/{sessionId} {
+      allow read: if true;
+      allow write: if 
+        request.resource.data.keys().hasAll(['authenticated', 'timestamp']) &&
+        (
+          // Allow setting to true if password check is done client-side
+          request.resource.data.authenticated == true ||
+          // Always allow setting to false (logout)
+          request.resource.data.authenticated == false
+        );
+    }
+    
+    // Updates collection
+    match /updates/{updateId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+    
+    // Comments collection
+    match /comments/{commentId} {
+      allow read: if true;
+      allow write: if isAdmin() || 
+        (request.method == 'create' && isRateLimited(path));
+    }
+    
+    // Waitlist collection
+    match /waitlist/{userId} {
+      allow read: if isAdmin();
+      allow create: if 
+        request.resource.data.email is string &&
+        request.resource.data.email.matches('^[^@]+@[^@]+\\.[^@]+$');
+      allow update, delete: if isAdmin();
+    }
+  }
+} 

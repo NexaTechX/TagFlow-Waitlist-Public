@@ -1,46 +1,33 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, ChangeEvent, FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAdminStore } from '../store/adminStore';
 import { Users, Bell, LogOut, Trash2, Edit, Send, Sun, Moon } from 'lucide-react';
-import { WaitlistUser, Update, UpdateFormData } from '../types';
+import { WaitlistUser, Update, Comment } from '../types';
 import emailjs from '@emailjs/browser';
 import toast, { Toaster } from 'react-hot-toast';
-import { getWaitlistUsers, subscribeToWaitlist, deleteWaitlistUser, updateUserFeedback } from '../lib/database';
+import { getWaitlistUsers, subscribeToWaitlist, deleteWaitlistUser, updateUserFeedback, addUpdate, updateUpdate, deleteUpdate, subscribeToUpdates, deleteComment, addAdminReply } from '../lib/database';
 
 // Initialize EmailJS
-emailjs.init("9sf1untPPvbg0U1P9");
+emailjs.init(import.meta.env.VITE_EMAIL_PUBLIC_KEY);
 
 const EMAIL_SERVICE_ID = import.meta.env.VITE_EMAIL_SERVICE_ID;
 const EMAIL_TEMPLATE_ID = import.meta.env.VITE_EMAIL_TEMPLATE_ID;
+
+interface UpdateFormData {
+  title: string;
+  content: string;
+  imageUrl?: string;
+}
+
+interface UpdateWithComments extends Update {
+  comments: Comment[];
+}
 
 const initialUpdateState: UpdateFormData = {
   title: '',
   content: '',
   imageUrl: '',
 };
-
-interface Comment {
-  id: string;
-  userEmail: string;
-  content: string;
-  date: string;
-  adminReply?: string;
-  adminReplyDate?: string;
-}
-
-interface UpdateWithComments extends Update {
-  comments: {
-    id: string;
-    userEmail: string;
-    content: string;
-    date: string;
-    adminReply?: string;
-    adminReplyDate?: string;
-    update_id: string;
-    user_email: string;
-    created_at: string;
-  }[];
-}
 
 export default function AdminDashboard() {
   const [users, setUsers] = useState<WaitlistUser[]>([]);
@@ -58,26 +45,19 @@ export default function AdminDashboard() {
       return;
     }
 
-    // Initial load of waitlist users
-    const loadUsers = async () => {
-      try {
-        const users = await getWaitlistUsers();
-        setUsers(users);
-      } catch (error) {
-        console.error('Error loading users:', error);
-        toast.error('Error loading users');
-      }
-    };
+    // Subscribe to updates
+    const unsubscribeUpdates = subscribeToUpdates((updatedUpdates) => {
+      setUpdates(updatedUpdates);
+    });
 
-    loadUsers();
-
-    // Subscribe to real-time updates
-    const subscription = subscribeToWaitlist((updatedUsers) => {
+    // Subscribe to waitlist
+    const unsubscribeWaitlist = subscribeToWaitlist((updatedUsers) => {
       setUsers(updatedUsers);
     });
 
     return () => {
-      subscription.unsubscribe();
+      if (unsubscribeUpdates) unsubscribeUpdates();
+      if (unsubscribeWaitlist) unsubscribeWaitlist();
     };
   }, [isAuthenticated, navigate]);
 
@@ -153,13 +133,19 @@ export default function AdminDashboard() {
     }
   };
 
-  const handleUpdateSubmit = async (e: React.FormEvent) => {
+  const handleInputChange = (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const { name, value } = e.target;
+    setNewUpdate(prev => ({ ...prev, [name]: value }));
+  };
+
+  const handleUpdateSubmit = async (e: FormEvent) => {
     e.preventDefault();
     
     if (!newUpdate.title.trim() || !newUpdate.content.trim()) {
       toast.error('Please fill in all required fields');
       return;
     }
+
     try {
       const update: Update = {
         id: editingId || Date.now().toString(),
@@ -170,27 +156,17 @@ export default function AdminDashboard() {
         comments: [],
       };
 
-      let updatedList: Update[];
-      
       if (editingId) {
-        updatedList = updates.map((u) => (u.id === editingId ? update : u));
+        await updateUpdate(editingId, update);
         toast.success('Update modified successfully!');
       } else {
-        updatedList = [update, ...updates];
-        await sendEmailNotifications(update);
+        const updateId = await addUpdate(update);
+        if (updateId) {
+          toast.success('Update posted successfully!');
+          await sendEmailNotifications(update);
+        }
       }
 
-      // Save to shared localStorage key
-      localStorage.setItem('tagflow_updates', JSON.stringify(updatedList));
-      
-      // Trigger storage event for other tabs/windows
-      window.dispatchEvent(new StorageEvent('storage', {
-        key: 'tagflow_updates',
-        newValue: JSON.stringify(updatedList)
-      }));
-
-      // Cast updatedList to UpdateWithComments[] since we know the structure matches
-      setUpdates(updatedList as UpdateWithComments[]);
       setNewUpdate(initialUpdateState);
       setEditingId(null);
     } catch (error) {
@@ -204,20 +180,23 @@ export default function AdminDashboard() {
     setNewUpdate({
       title: update.title,
       content: update.content,
-      imageUrl: update.image_url || '',
+      imageUrl: update.image_url,
     });
   };
 
-  const handleDelete = (id: string) => {
-    const updatedList = updates.filter((update) => update.id !== id);
-    localStorage.setItem('updates', JSON.stringify(updatedList));
-    setUpdates(updatedList);
-    toast.success('Update deleted successfully!');
+  const handleDelete = async (id: string) => {
+    try {
+      await deleteUpdate(id);
+      toast.success('Update deleted successfully!');
+    } catch (error) {
+      console.error('Error deleting update:', error);
+      toast.error('Failed to delete update');
+    }
   };
 
-  const handleDeleteUser = async (id: string) => {
+  const handleDeleteUser = async (userId: string) => {
     try {
-      await deleteWaitlistUser(id);
+      await deleteWaitlistUser(userId);
       toast.success('User deleted successfully!');
     } catch (error) {
       console.error('Error deleting user:', error);
@@ -279,52 +258,31 @@ export default function AdminDashboard() {
     }
   };
 
-  const handleDeleteComment = (updateId: string, commentId: string) => {
-    const updatedUpdates = updates.map(update => {
-      if (update.id === updateId) {
-        return {
-          ...update,
-          comments: update.comments.filter(comment => comment.id !== commentId)
-        };
-      }
-      return update;
-    });
-
-    setUpdates(updatedUpdates);
-    localStorage.setItem('updates', JSON.stringify(updatedUpdates));
-    toast.success('Comment deleted successfully!');
+  const handleDeleteComment = async (updateId: string, commentId: string) => {
+    try {
+      await deleteComment(updateId, commentId);
+      toast.success('Comment deleted successfully!');
+    } catch (error) {
+      console.error('Error deleting comment:', error);
+      toast.error('Failed to delete comment');
+    }
   };
 
-  const handleAdminReply = (updateId: string, commentId: string) => {
+  const handleAdminReply = async (updateId: string, commentId: string) => {
     if (!replyContent.trim()) {
       toast.error('Reply cannot be empty');
       return;
     }
 
-    const updatedUpdates = updates.map(update => {
-      if (update.id === updateId) {
-        return {
-          ...update,
-          comments: update.comments.map(comment => {
-            if (comment.id === commentId) {
-              return {
-                ...comment,
-                adminReply: replyContent,
-                adminReplyDate: new Date().toISOString()
-              };
-            }
-            return comment;
-          })
-        };
-      }
-      return update;
-    });
-
-    setUpdates(updatedUpdates);
-    localStorage.setItem('updates', JSON.stringify(updatedUpdates));
-    setReplyContent('');
-    setReplyingTo(null);
-    toast.success('Reply added successfully!');
+    try {
+      await addAdminReply(updateId, commentId, replyContent.trim());
+      setReplyContent('');
+      setReplyingTo(null);
+      toast.success('Reply added successfully!');
+    } catch (error) {
+      console.error('Error adding reply:', error);
+      toast.error('Failed to add reply');
+    }
   };
 
   return (
@@ -390,7 +348,7 @@ export default function AdminDashboard() {
               <div className="mt-6">
                 <ul className="divide-y divide-gray-200">
                   {users.map((user) => (
-                    <li key={user.email} className="py-4">
+                    <li key={user.id} className="py-4">
                       <div className="flex flex-col space-y-2">
                         <div className="flex items-center justify-between">
                           <div>
@@ -402,7 +360,7 @@ export default function AdminDashboard() {
                             </p>
                           </div>
                           <button
-                            onClick={() => handleDeleteUser(user.email)}
+                            onClick={() => handleDeleteUser(user.id)}
                             className="text-red-600 hover:text-red-800"
                             title="Delete user"
                           >
@@ -556,7 +514,7 @@ export default function AdminDashboard() {
                                 <div>
                                   <p className="text-sm text-gray-600">{comment.content}</p>
                                   <p className="text-xs text-gray-500 mt-1">
-                                    By: {comment.userEmail} • {new Date(comment.date).toLocaleDateString()}
+                                    By: {comment.user_email} • {new Date(comment.created_at).toLocaleDateString()}
                                   </p>
                                 </div>
                                 <button
@@ -569,11 +527,11 @@ export default function AdminDashboard() {
                               </div>
 
                               {/* Admin Reply Section */}
-                              {comment.adminReply ? (
+                              {comment.admin_reply ? (
                                 <div className="mt-2 pl-4 border-l-2 border-blue-200">
-                                  <p className="text-sm text-gray-700">{comment.adminReply}</p>
+                                  <p className="text-sm text-gray-700">{comment.admin_reply}</p>
                                   <p className="text-xs text-gray-500">
-                                    Admin Reply • {new Date(comment.adminReplyDate!).toLocaleDateString()}
+                                    Admin Reply • {new Date(comment.admin_reply_at!).toLocaleDateString()}
                                   </p>
                                 </div>
                               ) : (

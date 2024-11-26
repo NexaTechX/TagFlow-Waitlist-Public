@@ -3,18 +3,19 @@ export interface Comment {
   update_id: string;
   user_email: string;
   content: string;
-  created_at: string;
+  created_at: string | number;
   admin_reply?: string;
-  admin_reply_at?: string;
+  admin_reply_at?: string | number;
 }
 
 export interface Update {
   id: string;
   title: string;
   content: string;
-  image_url?: string;
   created_at: string;
-  comments?: Comment[];
+  comments: Comment[];
+  image_url?: string;
+  author?: string;
 }
 
 export interface WaitlistUser {
@@ -27,8 +28,8 @@ export interface WaitlistUser {
 export interface AdminState {
   isAuthenticated: boolean;
   isDark: boolean;
-  login: (password: string) => boolean;
-  logout: () => void;
+  login: (password: string) => Promise<boolean>;
+  logout: () => Promise<void>;
   toggleTheme: () => void;
 }
 

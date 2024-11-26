@@ -9,7 +9,7 @@ export default function AdminLogin() {
   const { login, isDark, toggleTheme } = useAdminStore();
   const navigate = useNavigate();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (!password.trim()) {
@@ -17,13 +17,20 @@ export default function AdminLogin() {
       return;
     }
 
-    const isValid = login(password.trim());
-    
-    if (isValid) {
-      toast.success('Login successful!');
-      navigate('/admin/dashboard');
-    } else {
-      toast.error('Invalid password');
+    try {
+      const isValid = await login(password.trim());
+      if (isValid) {
+        toast.success('Login successful!');
+        setTimeout(() => {
+          navigate('/admin/dashboard');
+        }, 500);
+      } else {
+        toast.error('Invalid password');
+        setPassword('');
+      }
+    } catch (error) {
+      console.error('Login error:', error);
+      toast.error('Login failed. Please try again.');
       setPassword('');
     }
   };

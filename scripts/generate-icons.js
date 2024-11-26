@@ -1,27 +1,32 @@
-const sharp = require('sharp');
-const fs = require('fs');
-const path = require('path');
+import sharp from 'sharp';
+import { fileURLToPath } from 'url';
+import { dirname, join } from 'path';
 
-const sizes = {
-  'tagflow-16x16.png': 16,
-  'tagflow-32x32.png': 32,
-  'tagflow-apple-touch.png': 180,
-  'tagflow-192x192.png': 192,
-  'tagflow-512x512.png': 512,
-  'tagflow-og-image.png': 1200
-};
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+
+const sizes = [16, 32, 48, 64, 128, 256];
+const inputImage = join(__dirname, '../src/assets/logo.png');
 
 async function generateIcons() {
-  const svgBuffer = fs.readFileSync(path.join(__dirname, '../public/tagflow-icon.svg'));
+  try {
+    // Generate apple touch icon
+    await sharp(inputImage)
+      .resize(180, 180)
+      .toFile(join(__dirname, '../public/tagflow-apple-touch.png'));
 
-  for (const [filename, size] of Object.entries(sizes)) {
-    await sharp(svgBuffer)
-      .resize(size, size)
-      .png()
-      .toFile(path.join(__dirname, '../public', filename));
-    
-    console.log(`Generated ${filename}`);
+    // Generate favicons
+    for (const size of sizes) {
+      await sharp(inputImage)
+        .resize(size, size)
+        .toFile(join(__dirname, `../public/favicon-${size}x${size}.png`));
+    }
+
+    console.log('Icons generated successfully!');
+  } catch (error) {
+    console.error('Error generating icons:', error);
+    process.exit(1);
   }
 }
 
-generateIcons().catch(console.error); 
+generateIcons(); 

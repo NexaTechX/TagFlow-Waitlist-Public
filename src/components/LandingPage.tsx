@@ -55,12 +55,12 @@ export default function LandingPage() {
     }
   };
 
-  const handleJoinWaitlist = async (emailInput: string) => {
+  const handleJoinWaitlist = async () => {
     if (isSubmitting) return;
 
     try {
       setIsSubmitting(true);
-      const trimmedEmail = emailInput.trim();
+      const trimmedEmail = email.trim();
 
       if (!trimmedEmail) {
         toast.error('Please enter your email address');
@@ -72,30 +72,32 @@ export default function LandingPage() {
         return;
       }
 
-      // Add to Supabase waitlist
-      await addToWaitlist(trimmedEmail);
+      const result = await addToWaitlist(trimmedEmail);
       
-      // Send welcome email
-      const emailSent = await sendWelcomeEmail(trimmedEmail);
-      
-      if (emailSent) {
-        toast.success('Successfully joined the waitlist! Check your email for confirmation.');
+      if (result.status === 'already_exists') {
+        toast.error('This email is already on the waitlist!');
       } else {
-        toast.success('Successfully joined the waitlist!');
-        toast.error('Failed to send welcome email');
+        const emailSent = await sendWelcomeEmail(result.data.email);
+        if (emailSent) {
+          toast.success('Successfully joined the waitlist! Check your email for confirmation.');
+        } else {
+          toast.success('Successfully joined the waitlist!');
+          toast.error('Failed to send welcome email, but you\'re still on the list!');
+        }
       }
       
       setEmail('');
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error joining waitlist:', error);
-      if (error.message === 'Email already exists in waitlist') {
-        toast.error('You are already on the waitlist!');
-      } else {
-        toast.error('Failed to join waitlist');
-      }
+      toast.error('Failed to join waitlist. Please try again.');
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    handleJoinWaitlist();
   };
 
   return (
@@ -135,8 +137,8 @@ export default function LandingPage() {
               Join our waitlist to be the first to know when we launch!
             </p>
             
-            {/* Animated Waitlist Form */}
-            <div className="mt-8 flex justify-center animate-fadeIn">
+            {/* Waitlist Form */}
+            <form onSubmit={handleSubmit} className="mt-8 flex justify-center animate-fadeIn">
               <div className="inline-flex rounded-md shadow-lg hover:shadow-xl transition-shadow duration-300">
                 <input
                   type="email"
@@ -148,15 +150,9 @@ export default function LandingPage() {
                       ? 'bg-gray-700 text-white placeholder-gray-400 border-gray-600' 
                       : 'bg-white text-gray-900 border-gray-300'
                     } transition-colors duration-300 focus:ring-2 focus:ring-blue-500 focus:outline-none`}
-                  onKeyPress={(e) => {
-                    if (e.key === 'Enter') {
-                      e.preventDefault();
-                      handleJoinWaitlist(email);
-                    }
-                  }}
                 />
                 <button
-                  onClick={() => handleJoinWaitlist(email)}
+                  type="submit"
                   disabled={isSubmitting}
                   className={`px-5 py-3 border border-transparent text-base font-medium rounded-r-md text-white 
                     ${isDark 
@@ -177,7 +173,7 @@ export default function LandingPage() {
                   )}
                 </button>
               </div>
-            </div>
+            </form>
           </div>
         </div>
       </div>

@@ -40,3 +40,8 @@ yarn-error.log*
 # Package files
 package-lock.json
 yarn.lock
+
+# Firebase
+firebase-debug.log*
+ui-debug.log*
+.firebase/

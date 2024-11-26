@@ -1,169 +1,179 @@
-import { supabase } from './supabase';
+import { db } from './firebase';
+import { 
+  collection, 
+  addDoc, 
+  getDocs, 
+  updateDoc, 
+  deleteDoc, 
+  doc, 
+  query, 
+  orderBy, 
+  where,
+  onSnapshot,
+  Timestamp,
+  serverTimestamp
+} from 'firebase/firestore';
 import type { Update, Comment, WaitlistUser } from '../types';
-import type { RealtimePostgresChangesPayload } from '@supabase/supabase-js';
 
 // Waitlist Operations
 export const addToWaitlist = async (email: string): Promise<WaitlistUser> => {
-  const { data: existing } = await supabase
-    .from('waitlist')
-    .select()
-    .eq('email', email)
-    .single();
-
-  if (existing) {
+  // Check if email already exists
+  const q = query(collection(db, 'waitlist'), where('email', '==', email));
+  const querySnapshot = await getDocs(q);
+  
+  if (!querySnapshot.empty) {
     throw new Error('Email already exists in waitlist');
   }
 
-  const { data, error } = await supabase
-    .from('waitlist')
-    .insert([{ 
-      email,
-      joined_at: new Date().toISOString()
-    }])
-    .select()
-    .single();
+  const docRef = await addDoc(collection(db, 'waitlist'), {
+    email,
+    joined_at: serverTimestamp()
+  });
 
-  if (error) throw error;
-  return data;
+  return {
+    id: docRef.id,
+    email,
+    joined_at: new Date().toISOString()
+  };
 };
 
 export const getWaitlistUsers = async (): Promise<WaitlistUser[]> => {
-  const { data, error } = await supabase
-    .from('waitlist')
-    .select('*')
-    .order('joined_at', { ascending: false });
-
-  if (error) throw error;
-  return data || [];
+  const q = query(collection(db, 'waitlist'), orderBy('joined_at', 'desc'));
+  const querySnapshot = await getDocs(q);
+  
+  return querySnapshot.docs.map(doc => ({
+    id: doc.id,
+    ...doc.data(),
+    joined_at: (doc.data().joined_at as Timestamp).toDate().toISOString()
+  })) as WaitlistUser[];
 };
 
 export const updateUserFeedback = async (id: string, feedback: string): Promise<void> => {
-  const { error } = await supabase
-    .from('waitlist')
-    .update({ feedback })
-    .eq('id', id);
-
-  if (error) throw error;
+  const userRef = doc(db, 'waitlist', id);
+  await updateDoc(userRef, { feedback });
 };
 
 export const deleteWaitlistUser = async (id: string): Promise<void> => {
-  const { error } = await supabase
-    .from('waitlist')
-    .delete()
-    .eq('id', id);
-
-  if (error) throw error;
-};
-
-export const subscribeToWaitlist = (callback: (users: WaitlistUser[]) => void) => {
-  return supabase
-    .channel('waitlist_changes')
-    .on('postgres_changes', 
-      { event: '*', schema: 'public', table: 'waitlist' },
-      async (_payload: RealtimePostgresChangesPayload<WaitlistUser>) => {
-        const { data } = await supabase
-          .from('waitlist')
-          .select('*')
-          .order('joined_at', { ascending: false });
-        callback(data || []);
-      }
-    )
-    .subscribe();
+  await deleteDoc(doc(db, 'waitlist', id));
 };
 
 // Updates Operations
 export const createUpdate = async (update: Omit<Update, 'id' | 'created_at'>): Promise<Update> => {
-  const { data, error } = await supabase
-    .from('updates')
-    .insert([update])
-    .select()
-    .single();
+  const docRef = await addDoc(collection(db, 'updates'), {
+    ...update,
+    created_at: serverTimestamp()
+  });
 
-  if (error) throw error;
-  return data;
+  return {
+    id: docRef.id,
+    ...update,
+    created_at: new Date().toISOString(),
+    comments: []
+  };
 };
 
 export const getUpdates = async (): Promise<Update[]> => {
-  const { data, error } = await supabase
-    .from('updates')
-    .select(`
-      *,
-      comments (*)
-    `)
-    .order('created_at', { ascending: false });
+  const updatesQuery = query(collection(db, 'updates'), orderBy('created_at', 'desc'));
+  const updatesSnapshot = await getDocs(updatesQuery);
+  
+  const updates = await Promise.all(updatesSnapshot.docs.map(async doc => {
+    const commentsQuery = query(
+      collection(db, 'comments'), 
+      where('update_id', '==', doc.id),
+      orderBy('created_at', 'asc')
+    );
+    const commentsSnapshot = await getDocs(commentsQuery);
+    
+    const comments = commentsSnapshot.docs.map(commentDoc => ({
+      id: commentDoc.id,
+      ...commentDoc.data(),
+      created_at: (commentDoc.data().created_at as Timestamp).toDate().toISOString(),
+      admin_reply_at: commentDoc.data().admin_reply_at ? 
+        (commentDoc.data().admin_reply_at as Timestamp).toDate().toISOString() : 
+        undefined
+    })) as Comment[];
 
-  if (error) throw error;
-  return data || [];
-};
+    return {
+      id: doc.id,
+      ...doc.data(),
+      created_at: (doc.data().created_at as Timestamp).toDate().toISOString(),
+      comments
+    };
+  }));
 
-export const updatePost = async (id: string, update: Partial<Update>): Promise<void> => {
-  const { error } = await supabase
-    .from('updates')
-    .update(update)
-    .eq('id', id);
-
-  if (error) throw error;
-};
-
-export const deleteUpdate = async (id: string): Promise<void> => {
-  const { error } = await supabase
-    .from('updates')
-    .delete()
-    .eq('id', id);
-
-  if (error) throw error;
+  return updates as Update[];
 };
 
 // Comments Operations
 export const addComment = async (comment: Omit<Comment, 'id' | 'created_at'>): Promise<Comment> => {
-  const { data, error } = await supabase
-    .from('comments')
-    .insert([comment])
-    .select()
-    .single();
+  const docRef = await addDoc(collection(db, 'comments'), {
+    ...comment,
+    created_at: serverTimestamp()
+  });
 
-  if (error) throw error;
-  return data;
+  return {
+    id: docRef.id,
+    ...comment,
+    created_at: new Date().toISOString()
+  };
 };
 
 export const updateComment = async (id: string, admin_reply: string): Promise<void> => {
-  const { error } = await supabase
-    .from('comments')
-    .update({ 
-      admin_reply, 
-      admin_reply_at: new Date().toISOString() 
-    })
-    .eq('id', id);
-
-  if (error) throw error;
+  const commentRef = doc(db, 'comments', id);
+  await updateDoc(commentRef, {
+    admin_reply,
+    admin_reply_at: serverTimestamp()
+  });
 };
 
 export const deleteComment = async (id: string): Promise<void> => {
-  const { error } = await supabase
-    .from('comments')
-    .delete()
-    .eq('id', id);
-
-  if (error) throw error;
+  await deleteDoc(doc(db, 'comments', id));
 };
 
 // Real-time subscriptions
-export const subscribeToUpdates = (callback: (update: Update) => void) => {
-  return supabase
-    .channel('updates')
-    .on('postgres_changes', 
-      { event: '*', schema: 'public', table: 'updates' },
-      (payload: RealtimePostgresChangesPayload<Update>) => callback(payload.new as Update)
-    )
-    .subscribe();
+export const subscribeToUpdates = (callback: (updates: Update[]) => void) => {
+  const q = query(collection(db, 'updates'), orderBy('created_at', 'desc'));
+  
+  return onSnapshot(q, async (snapshot) => {
+    const updates = await Promise.all(snapshot.docs.map(async doc => {
+      const commentsQuery = query(
+        collection(db, 'comments'),
+        where('update_id', '==', doc.id),
+        orderBy('created_at', 'asc')
+      );
+      const commentsSnapshot = await getDocs(commentsQuery);
+      
+      const comments = commentsSnapshot.docs.map(commentDoc => ({
+        id: commentDoc.id,
+        ...commentDoc.data(),
+        created_at: (commentDoc.data().created_at as Timestamp).toDate().toISOString(),
+        admin_reply_at: commentDoc.data().admin_reply_at ? 
+          (commentDoc.data().admin_reply_at as Timestamp).toDate().toISOString() : 
+          undefined
+      })) as Comment[];
+
+      return {
+        id: doc.id,
+        ...doc.data(),
+        created_at: (doc.data().created_at as Timestamp).toDate().toISOString(),
+        comments
+      };
+    }));
+
+    callback(updates as Update[]);
+  });
 };
 
-export const subscribeToComments = (callback: (comment: Comment) => void) => {
-  return supabase
-    .channel('comments')
-    .on('postgres_changes', 
-      { event: '*', schema: 'public', table: 'comments' },
-      (payload: RealtimePostgresChangesPayload<Comment>) => callback(payload.new as Comment)
-    )
-    .subscribe();
+export const subscribeToWaitlist = (callback: (users: WaitlistUser[]) => void) => {
+  const q = query(collection(db, 'waitlist'), orderBy('joined_at', 'desc'));
+  
+  return onSnapshot(q, (snapshot) => {
+    const users = snapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data(),
+      joined_at: (doc.data().joined_at as Timestamp).toDate().toISOString()
+    })) as WaitlistUser[];
+    
+    callback(users);
+  });
 }; 

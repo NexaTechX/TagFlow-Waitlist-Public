@@ -1,70 +1,43 @@
 import { useState, useEffect } from 'react';
-import { Update, Comment } from '../types';
+import { Update } from '../types';
 import toast, { Toaster } from 'react-hot-toast';
 import { useAdminStore } from '../store/adminStore';
-import { getUpdates, addComment, subscribeToUpdates } from '../lib/database';
+import { subscribeToUpdates, addComment } from '../lib/database';
 
 export default function UpdatesSection() {
-  const { isDark } = useAdminStore();
   const [updates, setUpdates] = useState<Update[]>([]);
-  const [newComment, setNewComment] = useState<string>('');
-  const [userEmail, setUserEmail] = useState<string>('');
+  const [commentText, setCommentText] = useState('');
+  const [userEmail, setUserEmail] = useState('');
   const [commentingOn, setCommentingOn] = useState<string | null>(null);
+  const { isDark } = useAdminStore();
 
   useEffect(() => {
-    // Initial load of updates
-    const loadUpdates = async () => {
-      try {
-        const fetchedUpdates = await getUpdates();
-        setUpdates(fetchedUpdates);
-      } catch (error) {
-        console.error('Error loading updates:', error);
-        toast.error('Error loading updates');
-      }
-    };
-
-    loadUpdates();
-
-    // Subscribe to real-time updates
-    const subscription = subscribeToUpdates((update) => {
-      setUpdates(prevUpdates => {
-        const index = prevUpdates.findIndex(u => u.id === update.id);
-        if (index >= 0) {
-          const newUpdates = [...prevUpdates];
-          newUpdates[index] = update;
-          return newUpdates;
-        }
-        return [update, ...prevUpdates];
-      });
+    const unsubscribe = subscribeToUpdates((updatedUpdates) => {
+      setUpdates(updatedUpdates);
     });
 
     return () => {
-      subscription.unsubscribe();
+      if (unsubscribe) {
+        unsubscribe();
+      }
     };
   }, []);
 
-  const handleCommentSubmit = async (updateId: string) => {
-    if (!userEmail.trim()) {
-      toast.error('Please enter your email to comment');
-      return;
-    }
-
-    if (!newComment.trim()) {
-      toast.error('Comment cannot be empty');
+  const handleComment = async (updateId: string) => {
+    if (!commentText.trim() || !userEmail.trim()) {
+      toast.error('Please enter both email and comment');
       return;
     }
 
     try {
-      const comment: Omit<Comment, 'id' | 'created_at'> = {
-        update_id: updateId,
-        user_email: userEmail,
-        content: newComment
-      };
+      await addComment(updateId, {
+        user_email: userEmail.trim(),
+        content: commentText.trim()
+      });
 
-      await addComment(comment);
-      setNewComment('');
-      setCommentingOn(null);
+      setCommentText('');
       setUserEmail('');
+      setCommentingOn(null);
       toast.success('Comment added successfully!');
     } catch (error) {
       console.error('Error adding comment:', error);
@@ -72,88 +45,64 @@ export default function UpdatesSection() {
     }
   };
 
-  if (updates.length === 0) {
-    return (
-      <div className="max-w-4xl mx-auto px-4 py-8">
-        <Toaster position="top-right" />
-        <h2 className={`text-2xl font-bold ${isDark ? 'text-white' : 'text-gray-900'} mb-6`}>
-          Latest Updates
-        </h2>
-        <p className={`${isDark ? 'text-gray-300' : 'text-gray-600'}`}>
-          No updates available yet. Check back soon!
-        </p>
-      </div>
-    );
-  }
-
   return (
-    <div className="max-w-4xl mx-auto px-4 py-8 sm:px-6 lg:px-8">
-      <Toaster position="top-right" />
-      <h2 className={`text-2xl font-bold ${isDark ? 'text-white' : 'text-gray-900'} mb-6 transition-colors duration-300`}>
-        Latest Updates
-      </h2>
-      <div className="space-y-6">
-        {updates.map((update) => (
-          <div key={update.id} 
-            className={`${isDark ? 'bg-gray-800' : 'bg-white'} shadow-lg rounded-lg overflow-hidden 
-              transform transition-all duration-300 hover:shadow-xl`}
-          >
-            <div className="p-4 sm:p-6">
-              <h3 className={`text-xl font-semibold ${isDark ? 'text-white' : 'text-gray-900'} transition-colors duration-300`}>
+    <div className={`py-12 ${isDark ? 'bg-gray-800' : 'bg-white'}`}>
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="space-y-8">
+          {updates.map((update) => (
+            <div 
+              key={update.id} 
+              className={`${isDark ? 'bg-gray-700' : 'bg-gray-50'} p-6 rounded-lg shadow-sm`}
+            >
+              <h3 className={`text-lg font-medium ${isDark ? 'text-white' : 'text-gray-900'}`}>
                 {update.title}
               </h3>
-              <p className={`mt-2 ${isDark ? 'text-gray-300' : 'text-gray-600'} transition-colors duration-300`}>
+              <p className={`mt-2 ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>
                 {update.content}
               </p>
               {update.image_url && (
-                <img
-                  src={update.image_url}
+                <img 
+                  src={update.image_url} 
                   alt={update.title}
-                  className="mt-4 rounded-lg max-h-64 w-full object-cover"
-                  loading="lazy"
+                  className="mt-4 rounded-lg max-h-64 object-cover"
                 />
               )}
-              <p className={`mt-4 text-sm ${isDark ? 'text-gray-400' : 'text-gray-500'} transition-colors duration-300`}>
+              <p className={`mt-4 text-sm ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
                 Posted on {new Date(update.created_at).toLocaleDateString()}
               </p>
 
               {/* Comments Section */}
-              <div className="mt-6">
-                <h4 className={`text-lg font-semibold ${isDark ? 'text-white' : 'text-gray-900'} mb-4 transition-colors duration-300`}>
-                  Comments ({update.comments?.length || 0})
+              <div className="mt-6 space-y-4">
+                <h4 className={`text-sm font-medium ${isDark ? 'text-gray-200' : 'text-gray-700'}`}>
+                  Comments ({update.comments.length})
                 </h4>
-                <div className="space-y-4">
-                  {update.comments?.map((comment) => (
-                    <div key={comment.id} 
-                      className={`${isDark ? 'bg-gray-700' : 'bg-gray-50'} p-4 rounded-lg 
-                        transition-colors duration-300`}
-                    >
-                      <p className={`${isDark ? 'text-gray-200' : 'text-gray-700'}`}>
-                        {comment.content}
-                      </p>
-                      <div className="mt-2 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2">
-                        <p className={`text-sm ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
-                          By: {comment.user_email}
+                
+                {update.comments.map((comment) => (
+                  <div 
+                    key={comment.id}
+                    className={`${isDark ? 'bg-gray-600' : 'bg-white'} p-4 rounded-md`}
+                  >
+                    <p className={`text-sm ${isDark ? 'text-gray-200' : 'text-gray-700'}`}>
+                      {comment.content}
+                    </p>
+                    <p className={`text-xs mt-1 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
+                      By: {comment.user_email} • {new Date(comment.created_at).toLocaleDateString()}
+                    </p>
+                    
+                    {comment.admin_reply && (
+                      <div className="mt-2 pl-4 border-l-2 border-blue-500">
+                        <p className={`text-sm ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>
+                          {comment.admin_reply}
                         </p>
-                        <p className={`text-sm ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
-                          {new Date(comment.created_at).toLocaleDateString()}
+                        <p className={`text-xs mt-1 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
+                          Admin Reply • {new Date(comment.admin_reply_at!).toLocaleDateString()}
                         </p>
                       </div>
-                      {comment.admin_reply && (
-                        <div className={`mt-3 pl-4 border-l-2 ${isDark ? 'border-blue-400' : 'border-blue-300'}`}>
-                          <p className={`${isDark ? 'text-gray-200' : 'text-gray-700'}`}>
-                            {comment.admin_reply}
-                          </p>
-                          <p className={`text-sm ${isDark ? 'text-gray-400' : 'text-gray-500'} mt-1`}>
-                            Admin Reply • {new Date(comment.admin_reply_at!).toLocaleDateString()}
-                          </p>
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
+                    )}
+                  </div>
+                ))}
 
-                {/* Comment Form */}
+                {/* Add Comment Form */}
                 {commentingOn === update.id ? (
                   <div className="mt-4 space-y-3">
                     <input
@@ -161,64 +110,60 @@ export default function UpdatesSection() {
                       value={userEmail}
                       onChange={(e) => setUserEmail(e.target.value)}
                       placeholder="Your email"
-                      className={`w-full px-3 py-2 border rounded-md shadow-sm 
-                        ${isDark 
-                          ? 'bg-gray-700 text-white placeholder-gray-400 border-gray-600' 
-                          : 'border-gray-300'
-                        } focus:ring-blue-500 focus:border-blue-500 transition-colors duration-300`}
-                      required
+                      className={`w-full px-3 py-2 text-sm rounded-md ${
+                        isDark 
+                          ? 'bg-gray-600 text-white placeholder-gray-400' 
+                          : 'bg-white text-gray-900 placeholder-gray-500'
+                      } border border-gray-300 focus:ring-blue-500 focus:border-blue-500`}
                     />
                     <textarea
-                      value={newComment}
-                      onChange={(e) => setNewComment(e.target.value)}
-                      placeholder="Write your comment..."
-                      className={`w-full px-3 py-2 border rounded-md shadow-sm 
-                        ${isDark 
-                          ? 'bg-gray-700 text-white placeholder-gray-400 border-gray-600' 
-                          : 'border-gray-300'
-                        } focus:ring-blue-500 focus:border-blue-500 transition-colors duration-300`}
+                      value={commentText}
+                      onChange={(e) => setCommentText(e.target.value)}
+                      placeholder="Your comment"
                       rows={3}
-                      required
+                      className={`w-full px-3 py-2 text-sm rounded-md ${
+                        isDark 
+                          ? 'bg-gray-600 text-white placeholder-gray-400' 
+                          : 'bg-white text-gray-900 placeholder-gray-500'
+                      } border border-gray-300 focus:ring-blue-500 focus:border-blue-500`}
                     />
-                    <div className="flex flex-col sm:flex-row gap-2">
-                      <button
-                        onClick={() => handleCommentSubmit(update.id)}
-                        className={`px-4 py-2 rounded-md text-white 
-                          ${isDark ? 'bg-blue-500 hover:bg-blue-600' : 'bg-blue-600 hover:bg-blue-700'}
-                          transition-colors duration-300 flex-1 sm:flex-none`}
-                      >
-                        Submit Comment
-                      </button>
+                    <div className="flex justify-end space-x-2">
                       <button
                         onClick={() => {
                           setCommentingOn(null);
-                          setNewComment('');
+                          setCommentText('');
                           setUserEmail('');
                         }}
-                        className={`px-4 py-2 rounded-md 
-                          ${isDark 
-                            ? 'bg-gray-600 text-gray-200 hover:bg-gray-500' 
-                            : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                          } transition-colors duration-300 flex-1 sm:flex-none`}
+                        className={`px-3 py-1 text-sm rounded-md ${
+                          isDark 
+                            ? 'bg-gray-500 hover:bg-gray-400 text-white' 
+                            : 'bg-gray-200 hover:bg-gray-300 text-gray-700'
+                        }`}
                       >
                         Cancel
+                      </button>
+                      <button
+                        onClick={() => handleComment(update.id)}
+                        className="px-3 py-1 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-md"
+                      >
+                        Post Comment
                       </button>
                     </div>
                   </div>
                 ) : (
                   <button
                     onClick={() => setCommentingOn(update.id)}
-                    className={`mt-4 text-sm font-medium 
-                      ${isDark ? 'text-blue-400 hover:text-blue-300' : 'text-blue-600 hover:text-blue-800'}
-                      transition-colors duration-300`}
+                    className={`mt-2 text-sm ${
+                      isDark ? 'text-blue-400 hover:text-blue-300' : 'text-blue-600 hover:text-blue-700'
+                    }`}
                   >
-                    Add a Comment
+                    Add a comment
                   </button>
                 )}
               </div>
             </div>
-          </div>
-        ))}
+          ))}
+        </div>
       </div>
     </div>
   );
