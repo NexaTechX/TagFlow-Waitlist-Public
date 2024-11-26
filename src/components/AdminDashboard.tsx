@@ -1,4 +1,4 @@
-import React, { useState, useEffect, ChangeEvent, FormEvent } from 'react';
+import { useState, useEffect, FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAdminStore } from '../store/adminStore';
 import { Users, Bell, LogOut, Trash2, Edit, Send, Sun, Moon } from 'lucide-react';
@@ -141,11 +141,6 @@ export default function AdminDashboard() {
       console.error('Error sending notification emails:', error);
       toast.error('Failed to send notification emails');
     }
-  };
-
-  const handleInputChange = (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    const { name, value } = e.target;
-    setNewUpdate(prev => ({ ...prev, [name]: value }));
   };
 
   const handleUpdateSubmit = async (e: FormEvent) => {

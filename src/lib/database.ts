@@ -16,6 +16,12 @@ import {
 } from 'firebase/firestore';
 import type { Update, Comment, WaitlistUser } from '../types';
 
+// Interfaces
+export interface CommentInput {
+  user_email: string;
+  content: string;
+}
+
 // Waitlist Operations
 export const addToWaitlist = async (email: string): Promise<WaitlistUser> => {
   // Check if email already exists
@@ -59,131 +65,63 @@ export const deleteWaitlistUser = async (id: string): Promise<void> => {
 };
 
 // Updates Operations
-export const createUpdate = async (update: Omit<Update, 'id' | 'created_at'>): Promise<Update> => {
-  const docRef = await addDoc(collection(db, 'updates'), {
-    ...update,
-    created_at: serverTimestamp()
-  });
+export async function addUpdate(update: Omit<Update, 'id' | 'created_at'>) {
+  try {
+    const adminSession = await getDoc(doc(db, 'admin_sessions', 'current'));
+    if (!adminSession.exists() || !adminSession.data().authenticated) {
+      throw new Error('Unauthorized');
+    }
 
-  return {
-    id: docRef.id,
-    ...update,
-    created_at: new Date().toISOString(),
-    comments: []
-  };
-};
+    const docRef = await addDoc(collection(db, 'updates'), {
+      ...update,
+      created_at: serverTimestamp(),
+      comments: [],
+      author: 'admin'
+    });
 
-export const getUpdates = async (): Promise<Update[]> => {
-  const updatesQuery = query(collection(db, 'updates'), orderBy('created_at', 'desc'));
-  const updatesSnapshot = await getDocs(updatesQuery);
-  
-  const updates = await Promise.all(updatesSnapshot.docs.map(async doc => {
-    const commentsQuery = query(
-      collection(db, 'comments'), 
-      where('update_id', '==', doc.id),
-      orderBy('created_at', 'asc')
-    );
-    const commentsSnapshot = await getDocs(commentsQuery);
-    
-    const comments = commentsSnapshot.docs.map(commentDoc => ({
-      id: commentDoc.id,
-      ...commentDoc.data(),
-      created_at: (commentDoc.data().created_at as Timestamp).toDate().toISOString(),
-      admin_reply_at: commentDoc.data().admin_reply_at ? 
-        (commentDoc.data().admin_reply_at as Timestamp).toDate().toISOString() : 
-        undefined
-    })) as Comment[];
-
-    return {
-      id: doc.id,
-      ...doc.data(),
-      created_at: (doc.data().created_at as Timestamp).toDate().toISOString(),
-      comments
-    };
-  }));
-
-  return updates as Update[];
-};
-
-// Comments Operations
-export const addComment = async (comment: Omit<Comment, 'id' | 'created_at'>): Promise<Comment> => {
-  const docRef = await addDoc(collection(db, 'comments'), {
-    ...comment,
-    created_at: serverTimestamp()
-  });
-
-  return {
-    id: docRef.id,
-    ...comment,
-    created_at: new Date().toISOString()
-  };
-};
-
-export const updateComment = async (id: string, admin_reply: string): Promise<void> => {
-  const commentRef = doc(db, 'comments', id);
-  await updateDoc(commentRef, {
-    admin_reply,
-    admin_reply_at: serverTimestamp()
-  });
-};
-
-export const deleteComment = async (id: string): Promise<void> => {
-  await deleteDoc(doc(db, 'comments', id));
-};
-
-// Real-time subscriptions
-export const subscribeToUpdates = (callback: (updates: Update[]) => void) => {
-  const q = query(collection(db, 'updates'), orderBy('created_at', 'desc'));
-  
-  return onSnapshot(q, async (snapshot) => {
-    const updates = await Promise.all(snapshot.docs.map(async doc => {
-      const commentsQuery = query(
-        collection(db, 'comments'),
-        where('update_id', '==', doc.id),
-        orderBy('created_at', 'asc')
-      );
-      const commentsSnapshot = await getDocs(commentsQuery);
-      
-      const comments = commentsSnapshot.docs.map(commentDoc => ({
-        id: commentDoc.id,
-        ...commentDoc.data(),
-        created_at: (commentDoc.data().created_at as Timestamp).toDate().toISOString(),
-        admin_reply_at: commentDoc.data().admin_reply_at ? 
-          (commentDoc.data().admin_reply_at as Timestamp).toDate().toISOString() : 
-          undefined
-      })) as Comment[];
-
-      return {
-        id: doc.id,
-        ...doc.data(),
-        created_at: (doc.data().created_at as Timestamp).toDate().toISOString(),
-        comments
-      };
-    }));
-
-    callback(updates as Update[]);
-  });
-};
-
-export const subscribeToWaitlist = (callback: (users: WaitlistUser[]) => void) => {
-  const q = query(collection(db, 'waitlist'), orderBy('joined_at', 'desc'));
-  
-  return onSnapshot(q, (snapshot) => {
-    const users = snapshot.docs.map(doc => ({
-      id: doc.id,
-      ...doc.data(),
-      joined_at: (doc.data().joined_at as Timestamp).toDate().toISOString()
-    })) as WaitlistUser[];
-    
-    callback(users);
-  });
-}; 
-
-export interface CommentInput {
-  user_email: string;
-  content: string;
+    return docRef.id;
+  } catch (error) {
+    console.error('Error adding update:', error);
+    throw error;
+  }
 }
 
+export async function updateUpdate(updateId: string, update: Omit<Update, 'id'>) {
+  try {
+    const adminSession = await getDoc(doc(db, 'admin_sessions', 'current'));
+    if (!adminSession.exists() || !adminSession.data().authenticated) {
+      throw new Error('Unauthorized');
+    }
+
+    const updateRef = doc(db, 'updates', updateId);
+    await updateDoc(updateRef, {
+      ...update,
+      updated_at: serverTimestamp()
+    });
+
+    return true;
+  } catch (error) {
+    console.error('Error updating update:', error);
+    throw error;
+  }
+}
+
+export async function deleteUpdate(updateId: string) {
+  try {
+    const adminSession = await getDoc(doc(db, 'admin_sessions', 'current'));
+    if (!adminSession.exists() || !adminSession.data().authenticated) {
+      throw new Error('Unauthorized');
+    }
+
+    await deleteDoc(doc(db, 'updates', updateId));
+    return true;
+  } catch (error) {
+    console.error('Error deleting update:', error);
+    throw error;
+  }
+}
+
+// Comments Operations
 export async function addComment(updateId: string, comment: CommentInput) {
   try {
     const updateRef = doc(db, 'updates', updateId);
@@ -193,14 +131,14 @@ export async function addComment(updateId: string, comment: CommentInput) {
       throw new Error('Update not found');
     }
 
-    const newComment = {
+    const newComment: Comment = {
       id: Date.now().toString(),
       update_id: updateId,
       user_email: comment.user_email,
       content: comment.content,
       created_at: new Date().toISOString(),
-      admin_reply: null,
-      admin_reply_at: null
+      admin_reply: undefined,
+      admin_reply_at: undefined
     };
 
     const currentComments = updateSnapshot.data().comments || [];
@@ -244,18 +182,62 @@ export async function deleteComment(updateId: string, commentId: string) {
   }
 }
 
-export async function addUpdate(update: Omit<Update, 'id' | 'created_at'>) {
-  // ... existing code ...
-}
-
-export async function updateUpdate(updateId: string, update: Omit<Update, 'id'>) {
-  // ... existing code ...
-}
-
-export async function deleteUpdate(updateId: string) {
-  // ... existing code ...
-}
-
 export async function addAdminReply(updateId: string, commentId: string, replyContent: string) {
-  // ... existing code ...
-} 
+  try {
+    const adminSession = await getDoc(doc(db, 'admin_sessions', 'current'));
+    if (!adminSession.exists() || !adminSession.data().authenticated) {
+      throw new Error('Unauthorized');
+    }
+
+    const updateRef = doc(db, 'updates', updateId);
+    const updateSnapshot = await getDoc(updateRef);
+
+    if (!updateSnapshot.exists()) {
+      throw new Error('Update not found');
+    }
+
+    const comments = updateSnapshot.data().comments || [];
+    const updatedComments = comments.map((comment: Comment) => {
+      if (comment.id === commentId) {
+        return {
+          ...comment,
+          admin_reply: replyContent,
+          admin_reply_at: new Date().toISOString()
+        };
+      }
+      return comment;
+    });
+
+    await updateDoc(updateRef, { comments: updatedComments });
+    return true;
+  } catch (error) {
+    console.error('Error adding admin reply:', error);
+    throw error;
+  }
+}
+
+// Subscriptions
+export const subscribeToUpdates = (callback: (updates: Update[]) => void) => {
+  const q = query(collection(db, 'updates'), orderBy('created_at', 'desc'));
+  return onSnapshot(q, (snapshot) => {
+    const updates = snapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data(),
+      created_at: doc.data().created_at?.toDate?.()?.toISOString() || new Date().toISOString(),
+      comments: doc.data().comments || []
+    })) as Update[];
+    callback(updates);
+  });
+};
+
+export const subscribeToWaitlist = (callback: (users: WaitlistUser[]) => void) => {
+  const q = query(collection(db, 'waitlist'), orderBy('joined_at', 'desc'));
+  return onSnapshot(q, (snapshot) => {
+    const users = snapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data(),
+      joined_at: doc.data().joined_at?.toDate?.()?.toISOString() || new Date().toISOString()
+    })) as WaitlistUser[];
+    callback(users);
+  });
+}; 

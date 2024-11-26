@@ -9,6 +9,7 @@ async function seedData() {
       content: "Thank you for joining our waitlist! We'll keep you updated on our progress.",
       created_at: serverTimestamp(),
       comments: [],
+      image_url: "https://picsum.photos/200",
       author: 'admin'
     });
 
