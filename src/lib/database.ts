@@ -11,7 +11,8 @@ import {
   where,
   onSnapshot,
   Timestamp,
-  serverTimestamp
+  serverTimestamp,
+  getDoc
 } from 'firebase/firestore';
 import type { Update, Comment, WaitlistUser } from '../types';
 
@@ -184,7 +185,63 @@ export interface CommentInput {
 }
 
 export async function addComment(updateId: string, comment: CommentInput) {
-  // ... existing code ...
+  try {
+    const updateRef = doc(db, 'updates', updateId);
+    const updateSnapshot = await getDoc(updateRef);
+
+    if (!updateSnapshot.exists()) {
+      throw new Error('Update not found');
+    }
+
+    const newComment = {
+      id: Date.now().toString(),
+      update_id: updateId,
+      user_email: comment.user_email,
+      content: comment.content,
+      created_at: new Date().toISOString(),
+      admin_reply: null,
+      admin_reply_at: null
+    };
+
+    const currentComments = updateSnapshot.data().comments || [];
+    await updateDoc(updateRef, {
+      comments: [...currentComments, newComment]
+    });
+
+    return newComment;
+  } catch (error) {
+    console.error('Error adding comment:', error);
+    throw error;
+  }
+}
+
+export async function deleteComment(updateId: string, commentId: string) {
+  try {
+    const adminSession = await getDoc(doc(db, 'admin_sessions', 'current'));
+    if (!adminSession.exists() || !adminSession.data().authenticated) {
+      throw new Error('Unauthorized');
+    }
+
+    const updateRef = doc(db, 'updates', updateId);
+    const updateSnapshot = await getDoc(updateRef);
+
+    if (!updateSnapshot.exists()) {
+      throw new Error('Update not found');
+    }
+
+    const comments = updateSnapshot.data().comments || [];
+    const updatedComments = comments.filter(comment => comment.id !== commentId);
+
+    await updateDoc(updateRef, { 
+      comments: updatedComments,
+      lastModified: new Date().toISOString()
+    });
+
+    return true;
+  } catch (error) {
+    console.error('Error deleting comment:', error);
+    throw error;
+  }
 }
 
 export async function addUpdate(update: Omit<Update, 'id' | 'created_at'>) {
@@ -196,10 +253,6 @@ export async function updateUpdate(updateId: string, update: Omit<Update, 'id'>)
 }
 
 export async function deleteUpdate(updateId: string) {
-  // ... existing code ...
-}
-
-export async function deleteComment(updateId: string, commentId: string) {
   // ... existing code ...
 }
 
