@@ -1,19 +1,26 @@
 import { db } from '../src/lib/firebase.js';
-import { collection, addDoc } from 'firebase/firestore';
+import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 
 async function seedData() {
   try {
-    const updatesRef = collection(db, 'updates');
-    
-    await addDoc(updatesRef, {
-      title: "Test Update",
-      content: "This is a test update",
-      created_at: new Date().toISOString(),
+    // Add a test update
+    const updateRef = await addDoc(collection(db, 'updates'), {
+      title: "Welcome to TagFlow",
+      content: "Thank you for joining our waitlist! We'll keep you updated on our progress.",
+      created_at: serverTimestamp(),
       comments: [],
-      image_url: "https://picsum.photos/200"
+      author: 'admin'
     });
 
-    console.log('Test data seeded successfully!');
+    console.log('Test update added with ID:', updateRef.id);
+
+    // Add a test admin session
+    await addDoc(collection(db, 'admin_sessions'), {
+      authenticated: false,
+      timestamp: serverTimestamp()
+    });
+
+    console.log('Initial data seeded successfully!');
   } catch (error) {
     console.error('Error seeding data:', error);
   }
