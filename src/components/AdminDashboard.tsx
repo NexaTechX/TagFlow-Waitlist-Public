@@ -5,7 +5,17 @@ import { Users, Bell, LogOut, Trash2, Edit, Send, Sun, Moon } from 'lucide-react
 import { WaitlistUser, Update, Comment } from '../types';
 import emailjs from '@emailjs/browser';
 import toast, { Toaster } from 'react-hot-toast';
-import { getWaitlistUsers, subscribeToWaitlist, deleteWaitlistUser, updateUserFeedback, addUpdate, updateUpdate, deleteUpdate, subscribeToUpdates, deleteComment, addAdminReply } from '../lib/database';
+import { 
+  subscribeToWaitlist, 
+  deleteWaitlistUser, 
+  updateUserFeedback, 
+  addUpdate, 
+  updateUpdate, 
+  deleteUpdate, 
+  subscribeToUpdates, 
+  deleteComment, 
+  addAdminReply 
+} from '../lib/database';
 
 // Initialize EmailJS
 emailjs.init(import.meta.env.VITE_EMAIL_PUBLIC_KEY);

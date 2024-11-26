@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
 import { Update } from '../types';
-import toast, { Toaster } from 'react-hot-toast';
+import toast from 'react-hot-toast';
 import { useAdminStore } from '../store/adminStore';
-import { subscribeToUpdates, addComment } from '../lib/database';
+import { subscribeToUpdates, addComment, CommentInput } from '../lib/database';
 
 export default function UpdatesSection() {
   const [updates, setUpdates] = useState<Update[]>([]);
@@ -29,11 +29,13 @@ export default function UpdatesSection() {
       return;
     }
 
+    const commentInput: CommentInput = {
+      user_email: userEmail.trim(),
+      content: commentText.trim()
+    };
+
     try {
-      await addComment(updateId, {
-        user_email: userEmail.trim(),
-        content: commentText.trim()
-      });
+      await addComment(updateId, commentInput);
 
       setCommentText('');
       setUserEmail('');

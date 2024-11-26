@@ -9,6 +9,16 @@ import { addToWaitlist } from '../lib/database';
 // Initialize EmailJS with your public key
 emailjs.init("9sf1untPPvbg0U1P9");
 
+interface WaitlistResponse {
+  status: 'success' | 'already_exists';
+  message: string;
+  data: {
+    id: string;
+    email: string;
+    joined_at: string;
+  };
+}
+
 export default function LandingPage() {
   const { isDark, toggleTheme } = useAdminStore();
   const [email, setEmail] = useState('');
@@ -55,7 +65,7 @@ export default function LandingPage() {
     }
   };
 
-  const handleJoinWaitlist = async () => {
+  const handleJoinWaitlist = async (email: string): Promise<WaitlistResponse> => {
     if (isSubmitting) return;
 
     try {
@@ -64,25 +74,68 @@ export default function LandingPage() {
 
       if (!trimmedEmail) {
         toast.error('Please enter your email address');
-        return;
+        return {
+          status: 'error',
+          message: 'Please enter your email address',
+          data: {
+            id: '',
+            email: '',
+            joined_at: ''
+          }
+        };
       }
 
       if (!validateEmail(trimmedEmail)) {
         toast.error('Please enter a valid email address');
-        return;
+        return {
+          status: 'error',
+          message: 'Please enter a valid email address',
+          data: {
+            id: '',
+            email: '',
+            joined_at: ''
+          }
+        };
       }
 
       const result = await addToWaitlist(trimmedEmail);
       
       if (result.status === 'already_exists') {
         toast.error('This email is already on the waitlist!');
+        return {
+          status: 'already_exists',
+          message: 'This email is already on the waitlist!',
+          data: {
+            id: '',
+            email: '',
+            joined_at: ''
+          }
+        };
       } else {
         const emailSent = await sendWelcomeEmail(result.data.email);
         if (emailSent) {
           toast.success('Successfully joined the waitlist! Check your email for confirmation.');
+          return {
+            status: 'success',
+            message: 'Successfully joined the waitlist! Check your email for confirmation.',
+            data: {
+              id: result.data.id,
+              email: result.data.email,
+              joined_at: result.data.joined_at
+            }
+          };
         } else {
           toast.success('Successfully joined the waitlist!');
           toast.error('Failed to send welcome email, but you\'re still on the list!');
+          return {
+            status: 'success',
+            message: 'Successfully joined the waitlist!',
+            data: {
+              id: result.data.id,
+              email: result.data.email,
+              joined_at: result.data.joined_at
+            }
+          };
         }
       }
       
@@ -97,7 +150,7 @@ export default function LandingPage() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    handleJoinWaitlist();
+    handleJoinWaitlist(email);
   };
 
   return (

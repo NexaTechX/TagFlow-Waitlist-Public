@@ -177,3 +177,32 @@ export const subscribeToWaitlist = (callback: (users: WaitlistUser[]) => void) =
     callback(users);
   });
 }; 
+
+export interface CommentInput {
+  user_email: string;
+  content: string;
+}
+
+export async function addComment(updateId: string, comment: CommentInput) {
+  // ... existing code ...
+}
+
+export async function addUpdate(update: Omit<Update, 'id' | 'created_at'>) {
+  // ... existing code ...
+}
+
+export async function updateUpdate(updateId: string, update: Omit<Update, 'id'>) {
+  // ... existing code ...
+}
+
+export async function deleteUpdate(updateId: string) {
+  // ... existing code ...
+}
+
+export async function deleteComment(updateId: string, commentId: string) {
+  // ... existing code ...
+}
+
+export async function addAdminReply(updateId: string, commentId: string, replyContent: string) {
+  // ... existing code ...
+} 
