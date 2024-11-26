@@ -1,6 +1,11 @@
 {
   "name": "TagFlow Waitlist",
   "short_name": "TagFlow",
+  "description": "Join TagFlow Waitlist - Be the first to know when we launch!",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#2563eb",
   "icons": [
     {
       "src": "/tagflow-16x16.png",
@@ -16,9 +21,16 @@
       "src": "/tagflow-apple-touch.png",
       "sizes": "180x180",
       "type": "image/png"
+    },
+    {
+      "src": "/tagflow-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/tagflow-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png"
     }
-  ],
-  "theme_color": "#2563eb",
-  "background_color": "#ffffff",
-  "display": "standalone"
+  ]
 } 
