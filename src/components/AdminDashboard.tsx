@@ -1,5 +1,5 @@
 import { useState, useEffect, FormEvent } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate as useRouterNavigate } from 'react-router-dom';
 import { useAdminStore } from '../store/adminStore';
 import { Users, Bell, LogOut, Trash2, Edit, Send, Sun, Moon } from 'lucide-react';
 import { WaitlistUser, Update, Comment } from '../types';
@@ -46,7 +46,7 @@ export default function AdminDashboard() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [replyContent, setReplyContent] = useState<string>('');
   const [replyingTo, setReplyingTo] = useState<string | null>(null);
-  const navigate = useNavigate();
+  const navigate = useRouterNavigate();
   const { isAuthenticated, logout, isDark, toggleTheme } = useAdminStore();
 
   useEffect(() => {
