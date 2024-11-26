@@ -230,7 +230,7 @@ export async function deleteComment(updateId: string, commentId: string) {
     }
 
     const comments = updateSnapshot.data().comments || [];
-    const updatedComments = comments.filter(comment => comment.id !== commentId);
+    const updatedComments = comments.filter((comment: Comment) => comment.id !== commentId);
 
     await updateDoc(updateRef, { 
       comments: updatedComments,
