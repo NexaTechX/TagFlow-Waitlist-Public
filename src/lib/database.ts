@@ -15,6 +15,7 @@ import {
   getDoc
 } from 'firebase/firestore';
 import type { Update, Comment, WaitlistUser } from '../types';
+import { toast } from 'react-hot-toast';
 
 // Interfaces
 export interface CommentInput {
@@ -218,16 +219,31 @@ export async function addAdminReply(updateId: string, commentId: string, replyCo
 
 // Subscriptions
 export const subscribeToUpdates = (callback: (updates: Update[]) => void) => {
-  const q = query(collection(db, 'updates'), orderBy('created_at', 'desc'));
-  return onSnapshot(q, (snapshot) => {
-    const updates = snapshot.docs.map(doc => ({
-      id: doc.id,
-      ...doc.data(),
-      created_at: doc.data().created_at?.toDate?.()?.toISOString() || new Date().toISOString(),
-      comments: doc.data().comments || []
-    })) as Update[];
-    callback(updates);
-  });
+  try {
+    const q = query(collection(db, 'updates'), orderBy('created_at', 'desc'));
+    
+    const unsubscribe = onSnapshot(q, 
+      (snapshot) => {
+        const updates = snapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data(),
+          created_at: doc.data().created_at?.toDate?.()?.toISOString() || new Date().toISOString(),
+          comments: doc.data().comments || []
+        })) as Update[];
+        callback(updates);
+      },
+      (error) => {
+        console.error('Error in updates subscription:', error);
+        toast.error('Failed to load updates. Please refresh the page.');
+      }
+    );
+
+    return unsubscribe;
+  } catch (error) {
+    console.error('Error setting up updates subscription:', error);
+    toast.error('Failed to connect to database. Please check your connection.');
+    return () => {};
+  }
 };
 
 export const subscribeToWaitlist = (callback: (users: WaitlistUser[]) => void) => {

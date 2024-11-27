@@ -6,27 +6,51 @@ import { subscribeToUpdates, addComment, CommentInput } from '../lib/database';
 
 export default function UpdatesSection() {
   const [updates, setUpdates] = useState<Update[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [commentText, setCommentText] = useState('');
   const [userEmail, setUserEmail] = useState('');
   const [commentingOn, setCommentingOn] = useState<string | null>(null);
   const { isDark } = useAdminStore();
 
   useEffect(() => {
-    try {
-      const unsubscribe = subscribeToUpdates((updatedUpdates) => {
-        setUpdates(updatedUpdates);
-      });
+    let unsubscribe: (() => void) | undefined;
 
-      return () => {
-        if (unsubscribe) {
-          unsubscribe();
-        }
-      };
-    } catch (error) {
-      console.error('Error loading updates:', error);
-      toast.error('Failed to load updates. Please refresh the page.');
-    }
+    const setupSubscription = async () => {
+      try {
+        setIsLoading(true);
+        unsubscribe = subscribeToUpdates((updatedUpdates) => {
+          setUpdates(updatedUpdates);
+          setIsLoading(false);
+        });
+      } catch (error) {
+        console.error('Error in updates subscription setup:', error);
+        toast.error('Failed to load updates. Please refresh the page.');
+        setIsLoading(false);
+      }
+    };
+
+    setupSubscription();
+
+    return () => {
+      if (unsubscribe) {
+        unsubscribe();
+      }
+    };
   }, []);
+
+  if (isLoading) {
+    return (
+      <div className={`py-12 ${isDark ? 'bg-gray-800' : 'bg-white'}`}>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center">
+            <p className={`text-lg ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>
+              Loading updates...
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   const handleComment = async (updateId: string) => {
     if (!commentText.trim() || !userEmail.trim()) {
