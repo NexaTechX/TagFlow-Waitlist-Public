@@ -9,16 +9,6 @@ import { addToWaitlist } from '../lib/database';
 // Initialize EmailJS with your public key
 emailjs.init("9sf1untPPvbg0U1P9");
 
-interface WaitlistResponse {
-  status: 'success' | 'already_exists';
-  message: string;
-  data: {
-    id: string;
-    email: string;
-    joined_at: string;
-  };
-}
-
 export default function LandingPage() {
   const { isDark, toggleTheme } = useAdminStore();
   const [email, setEmail] = useState('');
@@ -29,12 +19,35 @@ export default function LandingPage() {
     return emailRegex.test(email);
   };
 
-  const sendWelcomeEmail = async (userEmail: string) => {
+  const handleJoinWaitlist = async (email: string): Promise<void> => {
+    if (isSubmitting) return;
+
     try {
+      setIsSubmitting(true);
+      const trimmedEmail = email.trim();
+
+      if (!trimmedEmail) {
+        toast.error('Please enter your email address');
+        return;
+      }
+
+      if (!validateEmail(trimmedEmail)) {
+        toast.error('Please enter a valid email address');
+        return;
+      }
+
+      const result = await addToWaitlist(trimmedEmail);
+
+      if (result.status === 'already_exists') {
+        toast.error(result.message);
+        return;
+      }
+
+      // Send welcome email
       const templateParams = {
-        to_email: userEmail,
+        to_email: result.data.email,
         from_name: "TagFlow Team",
-        to_name: userEmail.split('@')[0],
+        to_name: result.data.email.split('@')[0],
         subject: "Welcome to TagFlow!",
         message: `
           Thank you for joining our waitlist! 
@@ -45,100 +58,28 @@ export default function LandingPage() {
           Feel free to check our website for regular updates and leave comments on our posts.
         `,
         website_url: window.location.origin,
-        user_email: userEmail
+        user_email: result.data.email
       };
 
-      const response = await emailjs.send(
-        "service_mzam0ga",
-        "template_qkfkuzi",
-        templateParams
-      );
+      try {
+        const response = await emailjs.send(
+          "service_mzam0ga",
+          "template_qkfkuzi",
+          templateParams
+        );
 
-      if (response.status === 200) {
-        console.log('Welcome email sent successfully to:', userEmail);
-        return true;
-      }
-      throw new Error(`Failed to send welcome email: ${response.text}`);
-    } catch (error) {
-      console.error('Error sending welcome email:', error);
-      return false;
-    }
-  };
-
-  const handleJoinWaitlist = async (email: string): Promise<WaitlistResponse> => {
-    if (isSubmitting) return;
-
-    try {
-      setIsSubmitting(true);
-      const trimmedEmail = email.trim();
-
-      if (!trimmedEmail) {
-        toast.error('Please enter your email address');
-        return {
-          status: 'error',
-          message: 'Please enter your email address',
-          data: {
-            id: '',
-            email: '',
-            joined_at: ''
-          }
-        };
-      }
-
-      if (!validateEmail(trimmedEmail)) {
-        toast.error('Please enter a valid email address');
-        return {
-          status: 'error',
-          message: 'Please enter a valid email address',
-          data: {
-            id: '',
-            email: '',
-            joined_at: ''
-          }
-        };
-      }
-
-      const result = await addToWaitlist(trimmedEmail);
-      
-      if (result.status === 'already_exists') {
-        toast.error('This email is already on the waitlist!');
-        return {
-          status: 'already_exists',
-          message: 'This email is already on the waitlist!',
-          data: {
-            id: '',
-            email: '',
-            joined_at: ''
-          }
-        };
-      } else {
-        const emailSent = await sendWelcomeEmail(result.data.email);
-        if (emailSent) {
+        if (response.status === 200) {
           toast.success('Successfully joined the waitlist! Check your email for confirmation.');
-          return {
-            status: 'success',
-            message: 'Successfully joined the waitlist! Check your email for confirmation.',
-            data: {
-              id: result.data.id,
-              email: result.data.email,
-              joined_at: result.data.joined_at
-            }
-          };
         } else {
           toast.success('Successfully joined the waitlist!');
           toast.error('Failed to send welcome email, but you\'re still on the list!');
-          return {
-            status: 'success',
-            message: 'Successfully joined the waitlist!',
-            data: {
-              id: result.data.id,
-              email: result.data.email,
-              joined_at: result.data.joined_at
-            }
-          };
         }
+      } catch (error) {
+        console.error('Error sending welcome email:', error);
+        toast.success('Successfully joined the waitlist!');
+        toast.error('Failed to send welcome email, but you\'re still on the list!');
       }
-      
+
       setEmail('');
     } catch (error) {
       console.error('Error joining waitlist:', error);

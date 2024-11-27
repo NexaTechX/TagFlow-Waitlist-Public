@@ -20,4 +20,4 @@
     "VITE_EMAIL_PUBLIC_KEY": "@vite_email_public_key",
     "VITE_ADMIN_PASSWORD": "@vite_admin_password"
   }
-} 
+}

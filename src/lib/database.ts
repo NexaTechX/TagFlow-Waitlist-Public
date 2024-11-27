@@ -23,8 +23,18 @@ export interface CommentInput {
   content: string;
 }
 
+export interface WaitlistResponse {
+  status: 'success' | 'already_exists';
+  message: string;
+  data: {
+    id: string;
+    email: string;
+    joined_at: string;
+  };
+}
+
 // Waitlist Operations
-export const addToWaitlist = async (email: string): Promise<WaitlistUser> => {
+export const addToWaitlist = async (email: string): Promise<WaitlistResponse> => {
   // Check if email already exists
   const q = query(collection(db, 'waitlist'), where('email', '==', email));
   const querySnapshot = await getDocs(q);
@@ -39,9 +49,13 @@ export const addToWaitlist = async (email: string): Promise<WaitlistUser> => {
   });
 
   return {
-    id: docRef.id,
-    email,
-    joined_at: new Date().toISOString()
+    status: 'success',
+    message: 'Email added to waitlist successfully',
+    data: {
+      id: docRef.id,
+      email,
+      joined_at: new Date().toISOString()
+    }
   };
 };
 
