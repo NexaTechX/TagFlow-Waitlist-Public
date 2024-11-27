@@ -2,12 +2,12 @@ import { initializeApp } from 'firebase/app';
 import { getFirestore } from 'firebase/firestore';
 
 const firebaseConfig = {
-  apiKey: "AIzaSyBfa_tIVAwxsuoFH0x3ONhmsiwnlbpBi_I",
-  authDomain: "tagflow-waitlist.firebaseapp.com",
-  projectId: "tagflow-waitlist",
-  storageBucket: "tagflow-waitlist.firebasestorage.app",
-  messagingSenderId: "856421117954",
-  appId: "1:856421117954:web:7f7d7365f9e768c070b71b"
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+  appId: import.meta.env.VITE_FIREBASE_APP_ID
 };
 
 // Initialize Firebase

@@ -12,15 +12,20 @@ export default function UpdatesSection() {
   const { isDark } = useAdminStore();
 
   useEffect(() => {
-    const unsubscribe = subscribeToUpdates((updatedUpdates) => {
-      setUpdates(updatedUpdates);
-    });
+    try {
+      const unsubscribe = subscribeToUpdates((updatedUpdates) => {
+        setUpdates(updatedUpdates);
+      });
 
-    return () => {
-      if (unsubscribe) {
-        unsubscribe();
-      }
-    };
+      return () => {
+        if (unsubscribe) {
+          unsubscribe();
+        }
+      };
+    } catch (error) {
+      console.error('Error loading updates:', error);
+      toast.error('Failed to load updates. Please refresh the page.');
+    }
   }, []);
 
   const handleComment = async (updateId: string) => {
